@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, Keyboard } from 'react-native';
 import { TextInput, Button, HelperText, Menu, Text, useTheme } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
@@ -14,6 +14,13 @@ interface ProfileStepProps {
     isLoading?: boolean;
     error?: string;
 }
+
+const GENDER_MAP: Record<string, string> = {
+    'male': 'Masculino',
+    'female': 'Femenino',
+    'non_binary': 'No binario',
+    'rather_not_say': 'Prefiero no decir'
+};
 
 export const ProfileStep = ({
     initialFirst = '',
@@ -59,14 +66,14 @@ export const ProfileStep = ({
         }
     };
 
+    const handleOpenConfigs = () => {
+        Keyboard.dismiss();
+        // Small timeout to ensure keyboard is gone before showing picker (optional but safer)
+        setTimeout(() => setShowDatePicker(true), 100);
+    }
+
     const getGenderLabel = () => {
-        switch (gender) {
-            case 'masculino': return 'Masculino';
-            case 'femenino': return 'Femenino';
-            case 'no_binario': return 'No binario';
-            case 'prefiero_no_decir': return 'Prefiero no decir';
-            default: return 'Género';
-        }
+        return GENDER_MAP[gender] || 'Género';
     };
 
     const getFormattedDate = () => {
@@ -110,7 +117,7 @@ export const ProfileStep = ({
             <View style={styles.row}>
                 <TouchableOpacity
                     style={styles.halfInput}
-                    onPress={() => setShowDatePicker(true)}
+                    onPress={handleOpenConfigs}
                     disabled={isLoading}
                     activeOpacity={0.7}
                 >
@@ -120,7 +127,7 @@ export const ProfileStep = ({
                         mode="outlined"
                         style={styles.input}
                         editable={false}
-                        right={<TextInput.Icon icon="calendar" onPress={() => setShowDatePicker(true)} />}
+                        right={<TextInput.Icon icon="calendar" onPress={handleOpenConfigs} />}
                         pointerEvents="none"
                     />
                 </TouchableOpacity>
@@ -131,7 +138,7 @@ export const ProfileStep = ({
                         onDismiss={() => setGenderMenuVisible(false)}
                         anchor={
                             <TouchableOpacity
-                                onPress={() => setGenderMenuVisible(true)}
+                                onPress={() => { Keyboard.dismiss(); setGenderMenuVisible(true); }}
                                 disabled={isLoading}
                                 style={[
                                     styles.genderButton,
@@ -144,10 +151,10 @@ export const ProfileStep = ({
                             </TouchableOpacity>
                         }
                     >
-                        <Menu.Item onPress={() => { setGender('masculino'); setGenderMenuVisible(false); }} title="Masculino" />
-                        <Menu.Item onPress={() => { setGender('femenino'); setGenderMenuVisible(false); }} title="Femenino" />
-                        <Menu.Item onPress={() => { setGender('no_binario'); setGenderMenuVisible(false); }} title="No binario" />
-                        <Menu.Item onPress={() => { setGender('prefiero_no_decir'); setGenderMenuVisible(false); }} title="Prefiero no decir" />
+                        <Menu.Item onPress={() => { setGender('male'); setGenderMenuVisible(false); }} title="Masculino" />
+                        <Menu.Item onPress={() => { setGender('female'); setGenderMenuVisible(false); }} title="Femenino" />
+                        <Menu.Item onPress={() => { setGender('non_binary'); setGenderMenuVisible(false); }} title="No binario" />
+                        <Menu.Item onPress={() => { setGender('rather_not_say'); setGenderMenuVisible(false); }} title="Prefiero no decir" />
                     </Menu>
                 </View>
             </View>

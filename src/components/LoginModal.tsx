@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Modal, Portal, Text, IconButton, useTheme } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/api';
@@ -302,9 +302,14 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
           <Stepper currentStep={step} steps={currentSteps} isLoading={loading} />
         )}
 
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {renderContent()}
-        </ScrollView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust based on header height
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            {renderContent()}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </Portal>
   );

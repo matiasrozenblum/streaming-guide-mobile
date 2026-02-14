@@ -107,11 +107,21 @@ export const MobileVideoPlayer = () => {
         }
     }, [isMinimized]);
 
+    const [playing, setPlaying] = useState(true);
+
+    useEffect(() => {
+        // Reset playing state when video changes
+        setPlaying(true);
+    }, [youtubeVideoId, youtubePlaylistId]);
+
     if (!isVisible || (!embedUrl && !youtubeVideoId && !youtubePlaylistId)) return null;
 
     // Match web implementation - centered modal when maximized, bottom-right when minimized
     const MODAL_WIDTH = SCREEN_WIDTH * 0.95; // 95% width like web
-    const MODAL_HEIGHT = SCREEN_HEIGHT * 0.52; // ~52vh like web
+    const VIDEO_ASPECT_RATIO = 9 / 16;
+    const VIDEO_HEIGHT = MODAL_WIDTH * VIDEO_ASPECT_RATIO;
+    const CONTROLS_HEIGHT = 40; // Space for the top controls row
+    const MODAL_HEIGHT = VIDEO_HEIGHT + CONTROLS_HEIGHT;
 
     return (
         <>
@@ -196,14 +206,19 @@ export const MobileVideoPlayer = () => {
                 <View style={styles.webviewContainer}>
                     {(youtubeVideoId || youtubePlaylistId) ? (
                         <YoutubePlayer
-                            height={isMinimized ? MINIMIZED_HEIGHT - 30 : MODAL_HEIGHT - 50}
-                            play={true}
+                            height={isMinimized ? MINIMIZED_HEIGHT - 30 : VIDEO_HEIGHT}
+                            play={playing}
                             videoId={youtubeVideoId || undefined}
                             playList={youtubePlaylistId || undefined}
                             onError={(error: string) => console.error('[VideoPlayer] YouTube error:', error)}
                             onReady={() => console.log('[VideoPlayer] YouTube player ready')}
+                            onChangeState={(state) => {
+                                if (state === 'ended') setPlaying(false);
+                            }}
                             webViewProps={{
                                 androidLayerType: 'hardware',
+                                mediaPlaybackRequiresUserAction: false,
+                                allowsInlineMediaPlayback: true,
                             }}
                         />
                     ) : embedUrl ? (
