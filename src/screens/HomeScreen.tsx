@@ -154,7 +154,7 @@ export const HomeScreen = () => {
             ...ch,
             schedules: ch.schedules.filter(s => s.day_of_week === selectedDayName),
         }))
-        .filter(ch => ch.schedules.length > 0);
+        .filter(ch => ch.schedules.length > 0 || !ch.channel.show_only_when_scheduled);
 
     // Load data on focus and when auth state changes (login/logout)
     useFocusEffect(
@@ -182,9 +182,12 @@ export const HomeScreen = () => {
         ? filteredByDay.filter(c => c.channel.categories?.some(cat => cat.id === selectedCategory.id))
         : filteredByDay;
 
-    const renderHeaderContent = () => (
+    const renderBannerContent = () => (
+        <BannerCarousel banners={banners} />
+    );
+
+    const renderStickyNavContent = () => (
         <View>
-            <BannerCarousel banners={banners} />
             <DaySelector selectedDate={selectedDate} onSelectDate={setSelectedDate} />
             {categories.length > 0 && (
                 <CategorySelector
@@ -204,7 +207,8 @@ export const HomeScreen = () => {
                 <ScheduleGrid
                     channels={filteredChannels}
                     loading={loading}
-                    headerContent={renderHeaderContent()}
+                    bannerContent={renderBannerContent()}
+                    stickyNavContent={renderStickyNavContent()}
                     onRefresh={onRefresh}
                     refreshing={refreshing}
                 />

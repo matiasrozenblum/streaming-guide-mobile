@@ -18,7 +18,7 @@ const HOUR_WIDTH = 60 * PIXELS_PER_MINUTE; // 120
 const TOTAL_WIDTH = 24 * HOUR_WIDTH; // 2880
 const CHANNEL_COL_WIDTH = layout.CHANNEL_LABEL_WIDTH_MOBILE; // 122
 
-export const ScheduleGrid = ({ channels, loading, headerContent, onRefresh, refreshing }: ScheduleGridProps & { headerContent?: React.ReactNode, onRefresh?: () => void, refreshing?: boolean }) => {
+export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing }: ScheduleGridProps & { bannerContent?: React.ReactNode, stickyNavContent?: React.ReactNode, onRefresh?: () => void, refreshing?: boolean }) => {
     const scrollViewRef = useRef<ScrollView>(null);
     const scrollX = useRef(new Animated.Value(0)).current;
     const initialScrollDone = useRef(false);
@@ -77,10 +77,10 @@ export const ScheduleGrid = ({ channels, loading, headerContent, onRefresh, refr
         return () => clearInterval(interval);
     }, []);
 
-    // Combine data types
+    // BANNER scrolls away; STICKY_HEADER (days + categories + time) stays pinned
     const flatListData = [
-        { type: 'HEAD', id: 'HEAD' },
-        { type: 'TIME', id: 'TIME' },
+        { type: 'BANNER', id: 'BANNER' },
+        { type: 'STICKY_HEADER', id: 'STICKY_HEADER' },
         ...channels.map(c => ({ type: 'CHANNEL', ...c }))
     ];
 
@@ -116,31 +116,38 @@ export const ScheduleGrid = ({ channels, loading, headerContent, onRefresh, refr
                     <FlashList
                         data={flatListData}
                         renderItem={({ item, index }) => {
-                            if (item.type === 'HEAD') {
+                            if (item.type === 'BANNER') {
                                 return (
                                     <Animated.View style={{
                                         width: Dimensions.get('window').width,
                                         transform: [{ translateX: scrollX }]
                                     }}>
-                                        {headerContent}
+                                        {bannerContent}
                                     </Animated.View>
                                 );
                             }
-                            if (item.type === 'TIME') {
-                                // TimeHeader is naturally wide
+                            if (item.type === 'STICKY_HEADER') {
                                 return (
-                                    <TimeHeader
-                                        width={TOTAL_WIDTH + CHANNEL_COL_WIDTH}
-                                        hourWidth={HOUR_WIDTH}
-                                        scrollX={scrollX}
-                                    />
+                                    <View style={{ backgroundColor: theme.colors.background }}>
+                                        <Animated.View style={{
+                                            width: Dimensions.get('window').width,
+                                            transform: [{ translateX: scrollX }],
+                                        }}>
+                                            {stickyNavContent}
+                                        </Animated.View>
+                                        <TimeHeader
+                                            width={TOTAL_WIDTH + CHANNEL_COL_WIDTH}
+                                            hourWidth={HOUR_WIDTH}
+                                            scrollX={scrollX}
+                                        />
+                                    </View>
                                 );
                             }
                             // Channel Item
                             return (
                                 <ScheduleRow
                                     channel={item as ChannelWithSchedules}
-                                    index={index - 2} // Adjustment for header items
+                                    index={index - 2} // Adjustment for BANNER + STICKY_HEADER
                                     pixelsPerMinute={PIXELS_PER_MINUTE}
                                     scrollX={scrollX}
                                     nowOffset={nowOffset}
@@ -150,14 +157,14 @@ export const ScheduleGrid = ({ channels, loading, headerContent, onRefresh, refr
                         // @ts-ignore
                         estimatedItemSize={layout.ROW_HEIGHT_MOBILE} // 60
                         keyExtractor={(item: any) => {
-                            if (item.type === 'HEAD') return 'head';
-                            if (item.type === 'TIME') return 'time';
+                            if (item.type === 'BANNER') return 'banner';
+                            if (item.type === 'STICKY_HEADER') return 'sticky-header';
                             return item.channel.id.toString();
                         }}
                         showsVerticalScrollIndicator={false}
                         removeClippedSubviews={false}
                         drawDistance={1000}
-                        stickyHeaderIndices={[1]} // Index of TimeHeader
+                        stickyHeaderIndices={[1]} // STICKY_HEADER (days + categories + time)
                         onRefresh={onRefresh}
                         refreshing={refreshing}
                         getItemType={(item: any) => item.type}
