@@ -64,13 +64,9 @@ export function usePushNotifications() {
 
             // Foreground message handler
             unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
-                console.log('[Push] Foreground notification:', remoteMessage.notification?.title);
-                if (remoteMessage.notification) {
-                    Alert.alert(
-                        remoteMessage.notification.title || 'Notificación',
-                        remoteMessage.notification.body || '',
-                    );
-                }
+                console.log('[Push] Foreground notification received:', remoteMessage.notification?.title);
+                // We do NOT show an Alert.alert here because the user wants to avoid the "double" notification effect.
+                // The system notification (if configured to show in foreground) or just the badge/sound is enough.
             });
         };
 

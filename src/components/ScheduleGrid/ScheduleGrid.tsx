@@ -7,6 +7,7 @@ import { ScheduleRow } from './ScheduleRow';
 import { TimeHeader } from './TimeHeader';
 import { layout } from '../../theme/tokens';
 import { getTheme } from '../../theme';
+import { CollapsibleBanner } from '../CollapsibleBanner';
 
 interface ScheduleGridProps {
     channels: ChannelWithSchedules[];
@@ -77,9 +78,32 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         return () => clearInterval(interval);
     }, []);
 
+    // Banner Visibility State
+    const [isBannerVisible, setIsBannerVisible] = useState(true);
+    const lastScrollY = useRef(0);
+
+    const handleVerticalScroll = (event: any) => {
+        const currentY = event.nativeEvent.contentOffset.y;
+
+        // Threshold to avoid jitter
+        const diff = currentY - lastScrollY.current;
+
+        // Strict Spec Implementation:
+        const THRESHOLD = 10;
+
+        if (currentY <= THRESHOLD) {
+            // At top -> Show
+            if (!isBannerVisible) setIsBannerVisible(true);
+        } else if (currentY > THRESHOLD) {
+            // Scrolling down -> Hide
+            if (isBannerVisible) setIsBannerVisible(false);
+        }
+
+        lastScrollY.current = currentY;
+    };
+
     // BANNER scrolls away; STICKY_HEADER (days + categories + time) stays pinned
     const flatListData = [
-        { type: 'BANNER', id: 'BANNER' },
         { type: 'STICKY_HEADER', id: 'STICKY_HEADER' },
         ...channels.map(c => ({ type: 'CHANNEL', ...c }))
     ];
@@ -94,7 +118,9 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/* Horizontal Scroll for Time */}
+            <CollapsibleBanner isVisible={isBannerVisible}>
+                {bannerContent}
+            </CollapsibleBanner>
             <Animated.ScrollView
                 horizontal
                 ref={scrollViewRef}
@@ -116,16 +142,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                     <FlashList
                         data={flatListData}
                         renderItem={({ item, index }) => {
-                            if (item.type === 'BANNER') {
-                                return (
-                                    <Animated.View style={{
-                                        width: Dimensions.get('window').width,
-                                        transform: [{ translateX: scrollX }]
-                                    }}>
-                                        {bannerContent}
-                                    </Animated.View>
-                                );
-                            }
+                            // REMOVED BANNER CASE
                             if (item.type === 'STICKY_HEADER') {
                                 return (
                                     <View style={{ backgroundColor: theme.colors.background }}>
@@ -147,7 +164,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                             return (
                                 <ScheduleRow
                                     channel={item as ChannelWithSchedules}
-                                    index={index - 2} // Adjustment for BANNER + STICKY_HEADER
+                                    index={index - 1} // Adjustment for STICKY_HEADER only (was -2)
                                     pixelsPerMinute={PIXELS_PER_MINUTE}
                                     scrollX={scrollX}
                                     nowOffset={nowOffset}
@@ -157,17 +174,18 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                         // @ts-ignore
                         estimatedItemSize={layout.ROW_HEIGHT_MOBILE} // 60
                         keyExtractor={(item: any) => {
-                            if (item.type === 'BANNER') return 'banner';
                             if (item.type === 'STICKY_HEADER') return 'sticky-header';
                             return item.channel.id.toString();
                         }}
                         showsVerticalScrollIndicator={false}
                         removeClippedSubviews={false}
                         drawDistance={1000}
-                        stickyHeaderIndices={[1]} // STICKY_HEADER (days + categories + time)
+                        stickyHeaderIndices={[0]} // STICKY_HEADER is now index 0
                         onRefresh={onRefresh}
                         refreshing={refreshing}
                         getItemType={(item: any) => item.type}
+                        onScroll={handleVerticalScroll}
+                        scrollEventThrottle={16}
                     />
                 </View>
             </Animated.ScrollView>
