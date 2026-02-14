@@ -1,20 +1,39 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider } from 'react-redux';
+import { store } from './src/store';
+import { NavigationContainer } from '@react-navigation/native';
+import { RootNavigator } from './src/navigation/RootNavigator';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
+import { VideoPlayerProvider } from './src/context/VideoPlayerContext';
+import { AuthProvider } from './src/context/AuthContext';
+import { LoginModalProvider } from './src/context/LoginModalContext';
+import { MobileVideoPlayer } from './src/components/VideoPlayer/MobileVideoPlayer';
+import { paperDarkTheme } from './src/theme';
 
-export default function App() {
+function AppContent() {
+  usePushNotifications();
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <LoginModalProvider>
+      <VideoPlayerProvider>
+        <NavigationContainer>
+          <RootNavigator />
+          <MobileVideoPlayer />
+        </NavigationContainer>
+      </VideoPlayerProvider>
+    </LoginModalProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <Provider store={store}>
+      <PaperProvider theme={paperDarkTheme}>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </PaperProvider>
+    </Provider>
+  );
+}
