@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "699504194906",
+    "project_id": "la-guia-del-streaming-ee16f",
+    "storage_bucket": "la-guia-del-streaming-ee16f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699504194906:android:c9f901d77d23e7b268ef63",
+        "android_client_info": {
+          "package_name": "com.laguiadelstreaming.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMX0B0EcPjb6MUsEQBPlFdlxBkzNPBVG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699504194906:android:02456acaa319296168ef63",
+        "android_client_info": {
+          "package_name": "com.laguiadelstreaming.app.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMX0B0EcPjb6MUsEQBPlFdlxBkzNPBVG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,14 +3,12 @@ import { getPlatform } from '../context/AuthContext';
 import { DeviceService } from './device.service';
 import * as Application from 'expo-application';
 
-// Development (Android Emulator)
-// const BASE_URL = 'http://10.0.2.2:3000';
+import Constants from 'expo-constants';
 
-// Development (iOS Simulator)
-// const BASE_URL = 'http://localhost:3000';
+// Get API URL from app.config.ts based on environment
+const BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000'; // Fallback for safety
 
-// Staging (Railway)
-const BASE_URL = 'https://streaming-guide-backend-staging.up.railway.app';
+console.log('[API] Initializing with Base URL:', BASE_URL);
 
 // Create axios instance
 export const api: AxiosInstance = axios.create({
