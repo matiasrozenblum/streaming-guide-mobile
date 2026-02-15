@@ -44,39 +44,53 @@ const withManifestMessagingFix = (config) => {
         const androidManifest = config.modResults;
         const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(androidManifest);
 
+        // Ensure 'tools' namespace is available
         if (!androidManifest.manifest.$['xmlns:tools']) {
             androidManifest.manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
         }
 
         const metaDataList = mainApplication['meta-data'] || [];
-        const conflictingKeys = [
-            'com.google.firebase.messaging.default_notification_channel_id',
-            'com.google.firebase.messaging.default_notification_icon',
-            'com.google.firebase.messaging.default_notification_color'
+
+        const requiredItems = [
+            {
+                name: 'com.google.firebase.messaging.default_notification_channel_id',
+                value: 'streaming_alerts',
+                replace: 'android:value'
+            },
+            {
+                name: 'com.google.firebase.messaging.default_notification_icon',
+                resource: '@drawable/notification_icon',
+                replace: 'android:resource'
+            },
+            {
+                name: 'com.google.firebase.messaging.default_notification_color',
+                resource: '@color/notification_icon_color',
+                replace: 'android:resource'
+            }
         ];
 
-        metaDataList.forEach((metaData) => {
-            const name = metaData.$['android:name'];
-            if (conflictingKeys.includes(name)) {
-                let toolsReplace = metaData.$['tools:replace'] || '';
-                let newReplace = '';
-
-                if (metaData.$['android:value']) {
-                    newReplace = 'android:value';
-                } else if (metaData.$['android:resource']) {
-                    newReplace = 'android:resource';
-                }
-
-                if (newReplace) {
-                    if (toolsReplace) {
-                        if (!toolsReplace.includes(newReplace)) {
-                            toolsReplace += `,${newReplace}`;
-                        }
-                    } else {
-                        toolsReplace = newReplace;
+        requiredItems.forEach(item => {
+            let existing = metaDataList.find(md => md.$['android:name'] === item.name);
+            if (existing) {
+                let currentReplace = existing.$['tools:replace'];
+                if (currentReplace) {
+                    if (!currentReplace.includes(item.replace)) {
+                        existing.$['tools:replace'] = `${currentReplace},${item.replace}`;
                     }
-                    metaData.$['tools:replace'] = toolsReplace;
+                } else {
+                    existing.$['tools:replace'] = item.replace;
                 }
+            } else {
+                const newItem = {
+                    $: {
+                        'android:name': item.name,
+                        'tools:replace': item.replace
+                    }
+                };
+                if (item.value) newItem.$['android:value'] = item.value;
+                if (item.resource) newItem.$['android:resource'] = item.resource;
+
+                metaDataList.push(newItem);
             }
         });
 

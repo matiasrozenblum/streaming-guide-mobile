@@ -58,7 +58,8 @@
     "react-native-svg": "15.12.1",
     "react-native-webview": "^13.16.0",
     "react-native-youtube-iframe": "^2.4.1",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@expo/config-plugins": "^54.0.4",
