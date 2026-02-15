@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Animated, TouchableOpacity, Text } from 'react-native';
-import ReAnimated, { useSharedValue, useAnimatedStyle, useAnimatedReaction, withTiming } from 'react-native-reanimated';
+
 import { FlashList } from '@shopify/flash-list';
 import dayjs from 'dayjs';
 import { ChannelWithSchedules } from '../../types/channel';
@@ -29,37 +29,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     const initialScrollDone = useRef(false);
     const theme = getTheme('dark');
 
-    // --- Banner collapse (reanimated, binary: fully visible or fully hidden) ---
-    const scrollY = useSharedValue(0);
-    const bannerHeight = useSharedValue(BANNER_TOTAL_HEIGHT);
-    const bannerOpacity = useSharedValue(1);
 
-    const handleVerticalScroll = useCallback((event: any) => {
-        scrollY.value = event.nativeEvent.contentOffset.y;
-    }, []);
-
-    // Toggle banner when scroll crosses the threshold
-    useAnimatedReaction(
-        () => scrollY.value <= 2,
-        (isAtTop, prevIsAtTop) => {
-            if (isAtTop !== prevIsAtTop) {
-                bannerHeight.value = withTiming(
-                    isAtTop ? BANNER_TOTAL_HEIGHT : 0,
-                    { duration: COLLAPSE_DURATION }
-                );
-                bannerOpacity.value = withTiming(
-                    isAtTop ? 1 : 0,
-                    { duration: COLLAPSE_DURATION * 0.8 }
-                );
-            }
-        },
-        []
-    );
-
-    const bannerCollapseStyle = useAnimatedStyle(() => ({
-        height: bannerHeight.value,
-        opacity: bannerOpacity.value,
-    }));
 
     // --- Horizontal scroll helpers ---
     const scrollToNow = (animated: boolean = true) => {
@@ -122,6 +92,24 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
         lastScrollY.current = currentY;
     };
+
+    // FAB Visibility Logic
+    const [isFabVisible, setIsFabVisible] = useState(false);
+
+    const checkFabVisibility = useCallback((offsetX: number) => {
+        const now = dayjs();
+        const minutes = now.hour() * 60 + now.minute();
+        const screenWidth = Dimensions.get('window').width;
+        // Calculate where "Now" is positioned
+        const idealX = Math.max(0, (minutes * PIXELS_PER_MINUTE) - (screenWidth / 2) + (CHANNEL_COL_WIDTH / 2));
+
+        // If current scroll X is different from ideal X by more than half screen width, show FAB
+        if (Math.abs(offsetX - idealX) > screenWidth / 2) {
+            setIsFabVisible(true);
+        } else {
+            setIsFabVisible(false);
+        }
+    }, []);
 
     // BANNER scrolls away; STICKY_HEADER (days + categories + time) stays pinned
     const flatListData = [

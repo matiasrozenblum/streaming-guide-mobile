@@ -30,6 +30,13 @@ const getApiUrl = () => {
     return 'https://streaming-guide-backend-production.up.railway.app';
 };
 
+const getAppIcon = () => {
+    if (IS_STAGING) {
+        return "./assets/app-icon-staging.png"; // Make sure this file exists!
+    }
+    return "./assets/app-icon.png";
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => {
     return {
         ...config,
@@ -37,12 +44,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         slug: "la-guia-del-streaming",
         version: "1.0.0",
         orientation: "portrait",
-        icon: "./assets/app-icon.png",
+        icon: getAppIcon(),
         userInterfaceStyle: "dark",
         backgroundColor: "#0f172a",
         newArchEnabled: true,
         splash: {
-            "image": "./assets/app-icon.png",
+            "image": getAppIcon(), // Optional: also change splash if desired
             "resizeMode": "contain",
             "backgroundColor": "#0f172a"
         },
@@ -53,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
         android: {
             adaptiveIcon: {
-                foregroundImage: "./assets/app-icon.png",
+                foregroundImage: getAppIcon(),
                 backgroundColor: "#0f172a"
             },
             package: getUniqueIdentifier(),
@@ -67,7 +74,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         extra: {
             apiUrl: getApiUrl(),
             eas: {
-                projectId: "277e923e-63f4-4ae0-a23e-83956322896c" // Retaining if it existed, or placeholder. I didn't see it in app.json so I'll omit if unsure, but usually easier to have. I'll omit for now to be safe and rely on what was in app.json.
+                projectId: "c6349d70-6b66-4fe3-b121-18d7ee5670bd"
             }
         },
         plugins: [
@@ -90,6 +97,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                 }
             ],
             "./plugins/withModularHeaders.js",
+            "./plugins/withManifestMessagingFix.js",
             "@react-native-community/datetimepicker"
         ]
     };
