@@ -37,6 +37,53 @@ const getAppIcon = () => {
     return "./assets/app-icon.png";
 };
 
+const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
+
+const withManifestMessagingFix = (config) => {
+    return withAndroidManifest(config, async (config) => {
+        const androidManifest = config.modResults;
+        const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(androidManifest);
+
+        if (!androidManifest.manifest.$['xmlns:tools']) {
+            androidManifest.manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+        }
+
+        const metaDataList = mainApplication['meta-data'] || [];
+        const conflictingKeys = [
+            'com.google.firebase.messaging.default_notification_channel_id',
+            'com.google.firebase.messaging.default_notification_icon',
+            'com.google.firebase.messaging.default_notification_color'
+        ];
+
+        metaDataList.forEach((metaData) => {
+            const name = metaData.$['android:name'];
+            if (conflictingKeys.includes(name)) {
+                let toolsReplace = metaData.$['tools:replace'] || '';
+                let newReplace = '';
+
+                if (metaData.$['android:value']) {
+                    newReplace = 'android:value';
+                } else if (metaData.$['android:resource']) {
+                    newReplace = 'android:resource';
+                }
+
+                if (newReplace) {
+                    if (toolsReplace) {
+                        if (!toolsReplace.includes(newReplace)) {
+                            toolsReplace += `,${newReplace}`;
+                        }
+                    } else {
+                        toolsReplace = newReplace;
+                    }
+                    metaData.$['tools:replace'] = toolsReplace;
+                }
+            }
+        });
+
+        return config;
+    });
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => {
     return {
         ...config,
@@ -97,7 +144,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                 }
             ],
             "./plugins/withModularHeaders.js",
-            "./plugins/withManifestMessagingFix.js",
+            withManifestMessagingFix,
             "@react-native-community/datetimepicker"
         ]
     };
