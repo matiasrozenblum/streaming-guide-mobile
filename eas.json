@@ -20,6 +20,12 @@
             "env": {
                 "APP_VARIANT": "production"
             }
+        },
+        "production-apk": {
+            "extends": "production",
+            "android": {
+                "buildType": "apk"
+            }
         }
     },
     "submit": {
