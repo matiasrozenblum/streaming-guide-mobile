@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedScrollHandler,
-    useAnimatedRef, scrollTo, runOnJS,
+    useAnimatedRef, scrollTo, runOnJS, runOnUI,
+    useAnimatedReaction, withTiming,
 } from 'react-native-reanimated';
 import dayjs from 'dayjs';
 import { ChannelWithSchedules } from '../../types/channel';
@@ -35,18 +36,39 @@ interface ScheduleGridProps {
 export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing }: ScheduleGridProps) => {
     const theme = getTheme('dark');
 
-    // --- Scroll refs (reanimated, UI-thread capable) ---
-    const leftScrollRef = useAnimatedRef<Animated.ScrollView>();
-    const rightScrollRef = useAnimatedRef<Animated.ScrollView>();
+    // --- Refs ---
     const horizontalScrollRef = useAnimatedRef<Animated.ScrollView>();
+    const verticalScrollRef = useAnimatedRef<Animated.ScrollView>();
+    const leftColumnRef = useAnimatedRef<Animated.ScrollView>();
+
+    // --- Shared Values ---
+    const scrollX = useSharedValue(0);
+    const scrollY = useSharedValue(0);
 
     const initialScrollDone = useRef(false);
 
-    // --- Grid height measurement (inner vertical scroll needs explicit height) ---
-    const [gridHeight, setGridHeight] = useState(0);
-    const programsAreaHeight = gridHeight > 0 ? gridHeight - TIME_HEADER_HEIGHT : 0;
+    // --- Scroll Handlers ---
+    const onHorizontalScroll = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            scrollX.value = event.contentOffset.x;
+        },
+    });
 
-    // --- Now line offset (no CHANNEL_COL_WIDTH — programs are in their own column) ---
+    const onVerticalScroll = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            scrollY.value = event.contentOffset.y;
+        },
+    });
+
+    // --- Sync Left Column (Logos) with Right Column (Programs) ---
+    useAnimatedReaction(
+        () => scrollY.value,
+        (y) => {
+            scrollTo(leftColumnRef, 0, y, false);
+        }
+    );
+
+    // --- Now line offset ---
     const [nowOffset, setNowOffset] = useState(0);
 
     const calculateOffset = useCallback(() => {
@@ -61,49 +83,29 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         return () => clearInterval(interval);
     }, [calculateOffset]);
 
-    // --- Banner collapse (binary: visible at top, hidden when scrolled) ---
-    const [isBannerVisible, setIsBannerVisible] = useState(true);
-
-    const handleBannerVisibility = useCallback((currentY: number) => {
-        const THRESHOLD = 10;
-        if (currentY <= THRESHOLD) {
-            setIsBannerVisible(true);
-        } else {
-            setIsBannerVisible(false);
-        }
-    }, []);
-
     // --- FAB visibility ---
     const [isFabVisible, setIsFabVisible] = useState(false);
 
-    const checkFabVisibility = useCallback((offsetX: number) => {
+    // Helper to check FAB visibility on JS thread
+    const checkFab = (currentX: number) => {
         const now = dayjs();
         const minutes = now.hour() * 60 + now.minute();
         const screenWidth = Dimensions.get('window').width;
         const visibleProgramWidth = screenWidth - CHANNEL_COL_WIDTH;
         const idealX = Math.max(0, (minutes * PIXELS_PER_MINUTE) - (visibleProgramWidth / 2));
 
-        if (Math.abs(offsetX - idealX) > visibleProgramWidth / 2) {
-            setIsFabVisible(true);
-        } else {
-            setIsFabVisible(false);
-        }
-    }, []);
+        const isVisible = Math.abs(currentX - idealX) > visibleProgramWidth / 2;
+        setIsFabVisible(isVisible);
+    };
 
-    // --- Vertical scroll sync: right drives left (UI thread, frame-perfect) ---
-    const onRightVerticalScroll = useAnimatedScrollHandler({
-        onScroll: (event) => {
-            scrollTo(leftScrollRef, 0, event.contentOffset.y, false);
-            runOnJS(handleBannerVisibility)(event.contentOffset.y);
+    // Watch scrollX for FAB
+    useAnimatedReaction(
+        () => scrollX.value,
+        (currentX) => {
+            runOnJS(checkFab)(currentX);
         },
-    });
-
-    // --- Horizontal scroll handler ---
-    const onHorizontalScroll = useAnimatedScrollHandler({
-        onScroll: (event) => {
-            runOnJS(checkFabVisibility)(event.contentOffset.x);
-        },
-    });
+        [channels]
+    );
 
     // --- Scroll to now ---
     const scrollToNow = useCallback((animated: boolean = true) => {
@@ -114,7 +116,9 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         const offset = (minutes * PIXELS_PER_MINUTE) - (visibleProgramWidth / 2);
         const targetX = Math.max(0, offset);
 
-        scrollTo(horizontalScrollRef, targetX, 0, animated);
+        runOnUI(() => {
+            scrollTo(horizontalScrollRef, targetX, 0, animated);
+        })();
     }, [horizontalScrollRef]);
 
     // Auto-scroll on first successful load
@@ -139,99 +143,99 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Collapsible Banner — outside all scroll views */}
-            <CollapsibleBanner isVisible={isBannerVisible}>
+            <CollapsibleBanner scrollY={scrollY}>
                 {bannerContent}
             </CollapsibleBanner>
 
-            {/* Day selector + Categories — FIXED, never scrolls */}
+            {/* Sticky Nav (Day Selector etc) */}
             {stickyNavContent}
 
-            {/* Main grid: left column (logos) + right column (timeline) */}
-            <View
-                style={styles.gridContainer}
-                onLayout={(e) => setGridHeight(e.nativeEvent.layout.height)}
-            >
-                {/* LEFT COLUMN: CANAL label + channel logos */}
-                <View style={[styles.leftColumn, { backgroundColor: theme.colors.background }]}>
+            {/* Main grid Layout */}
+            <View style={styles.gridContainer}>
+
+                {/* LEFT COLUMN: Fixed X, Scrolls Y (Synced) */}
+                <View style={[styles.leftColumn, { backgroundColor: theme.colors.background, zIndex: 20 }]}>
+                    {/* Corner Label (Fixed) */}
                     <View style={[styles.canalLabel, {
                         backgroundColor: theme.colors.background,
                         borderRightColor: theme.colors.border,
                         borderBottomColor: theme.colors.border,
+                        zIndex: 30,
                     }]}>
                         <Text style={[styles.canalText, { color: theme.colors.textSecondary }]}>
                             CANAL
                         </Text>
                     </View>
 
-                    {programsAreaHeight > 0 && (
-                        <Animated.ScrollView
-                            ref={leftScrollRef}
-                            scrollEnabled={false}
-                            showsVerticalScrollIndicator={false}
-                            style={{ height: programsAreaHeight }}
-                        >
-                            {channels.map((channel) => (
-                                <View key={channel.channel.id} style={[styles.logoRow, {
-                                    backgroundColor: theme.colors.background,
-                                    borderRightColor: theme.colors.border,
-                                }]}>
-                                    <ChannelLogo channel={channel.channel} />
-                                </View>
-                            ))}
-                        </Animated.ScrollView>
-                    )}
+                    {/* Scroller for Logos */}
+                    <Animated.ScrollView
+                        ref={leftColumnRef}
+                        showsVerticalScrollIndicator={false}
+                        scrollEnabled={false} // Disable touch, strictly controlled by sync
+                        style={{ flex: 1 }}
+                    >
+                        {channels.map((channel) => (
+                            <View key={channel.channel.id} style={[styles.logoRow, {
+                                backgroundColor: theme.colors.background,
+                                borderRightColor: theme.colors.border,
+                            }]}>
+                                <ChannelLogo channel={channel.channel} />
+                            </View>
+                        ))}
+                    </Animated.ScrollView>
                 </View>
 
-                {/* RIGHT COLUMN: time header + programs (horizontally scrollable) */}
-                <Animated.ScrollView
-                    ref={horizontalScrollRef}
-                    horizontal
-                    onScroll={onHorizontalScroll}
-                    scrollEventThrottle={16}
-                    showsHorizontalScrollIndicator={false}
-                    bounces={false}
-                    style={styles.rightColumn}
-                >
-                    <View style={{ width: TOTAL_WIDTH }}>
-                        {/* Hour markers — sticky vertically (outside vertical scroll) */}
-                        <TimeHeaderMarkers
-                            hourWidth={HOUR_WIDTH}
-                            totalWidth={TOTAL_WIDTH}
-                        />
+                {/* RIGHT COLUMN: Scrolls X (Horizontal) */}
+                <View style={styles.rightColumn}>
+                    <Animated.ScrollView
+                        ref={horizontalScrollRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        onScroll={onHorizontalScroll}
+                        scrollEventThrottle={16}
+                    >
+                        <View>
+                            {/* Time Header (Sticky within Horizontal) */}
+                            <View style={{ height: TIME_HEADER_HEIGHT, zIndex: 15 }}>
+                                <TimeHeaderMarkers
+                                    hourWidth={HOUR_WIDTH}
+                                    totalWidth={TOTAL_WIDTH}
+                                />
+                            </View>
 
-                        {/* Program rows — vertically scrollable */}
-                        {programsAreaHeight > 0 && (
+                            {/* Main Vertical Content (Scrolls Y) */}
                             <Animated.ScrollView
-                                ref={rightScrollRef}
-                                onScroll={onRightVerticalScroll}
+                                ref={verticalScrollRef}
+                                showsVerticalScrollIndicator={true}
+                                onScroll={onVerticalScroll}
                                 scrollEventThrottle={16}
-                                showsVerticalScrollIndicator={false}
-                                nestedScrollEnabled={Platform.OS === 'android'}
-                                style={{ height: programsAreaHeight }}
+                                contentContainerStyle={{ flexDirection: 'column' }}
                                 refreshControl={
                                     onRefresh ? (
                                         <RefreshControl
-                                            refreshing={refreshing ?? false}
+                                            refreshing={!!refreshing}
                                             onRefresh={onRefresh}
                                             tintColor={theme.colors.primary}
                                         />
                                     ) : undefined
                                 }
                             >
-                                {channels.map((channel, index) => (
-                                    <ProgramRow
-                                        key={channel.channel.id}
-                                        channel={channel}
-                                        index={index}
-                                        pixelsPerMinute={PIXELS_PER_MINUTE}
-                                        nowOffset={nowOffset}
-                                        totalWidth={TOTAL_WIDTH}
-                                    />
-                                ))}
+                                <View style={{ width: TOTAL_WIDTH }}>
+                                    {channels.map((channel, index) => (
+                                        <ProgramRow
+                                            key={channel.channel.id}
+                                            channel={channel}
+                                            index={index}
+                                            pixelsPerMinute={PIXELS_PER_MINUTE}
+                                            nowOffset={nowOffset}
+                                            totalWidth={TOTAL_WIDTH}
+                                        />
+                                    ))}
+                                </View>
                             </Animated.ScrollView>
-                        )}
-                    </View>
-                </Animated.ScrollView>
+                        </View>
+                    </Animated.ScrollView>
+                </View>
             </View>
 
             {/* EN VIVO FAB */}

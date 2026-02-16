@@ -1,54 +1,54 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import Animated, {
+    useAnimatedStyle,
+    withTiming,
+    useDerivedValue,
+    SharedValue,
+    interpolate,
+    Extrapolation
+} from 'react-native-reanimated';
 
 interface CollapsibleBannerProps {
     children: React.ReactNode;
-    isVisible: boolean;
+    scrollY: SharedValue<number>;
 }
 
-const BANNER_HEIGHT = 152; // 120 (banner) + 16 (margin top) + 16 (margin bottom) roughly. 
-// Actually BannerCarousel has height 120, marginTop 16, marginBottom 16. Total space = 152.
-// Let's check BannerCarousel styles again.
-// height: 120. marginTop: 16. marginBottom: 16.
-// Total occupied vertical space = 120 + 16 + 16 = 152.
+const BANNER_HEIGHT = 152;
+const SCROLL_THRESHOLD = 50; // Collapse after 50px of scrolling
 
-export const CollapsibleBanner = ({ children, isVisible }: CollapsibleBannerProps) => {
-    const animation = useRef(new Animated.Value(isVisible ? 1 : 0)).current;
+export const CollapsibleBanner = ({ children, scrollY }: CollapsibleBannerProps) => {
 
-    useEffect(() => {
-        Animated.timing(animation, {
-            toValue: isVisible ? 1 : 0,
-            duration: 300,
-            useNativeDriver: false, // Height cannot be animated with native driver
-        }).start();
-    }, [isVisible]);
-
-    const height = animation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 152], // Adjust if margins are handled differently
+    // Derived value: 0 = hidden, 1 = visible
+    const visibility = useDerivedValue(() => {
+        return scrollY.value > SCROLL_THRESHOLD ? 0 : 1;
     });
 
-    const opacity = animation.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0, 0, 1],
-    });
+    const animatedStyle = useAnimatedStyle(() => {
+        const isVisible = visibility.value === 1;
 
-    const translateY = animation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-50, 0],
+        return {
+            height: withTiming(isVisible ? BANNER_HEIGHT : 0, { duration: 300 }),
+            opacity: withTiming(isVisible ? 1 : 0, { duration: 200 }),
+            transform: [
+                {
+                    translateY: withTiming(isVisible ? 0 : -50, { duration: 300 })
+                }
+            ],
+            overflow: 'hidden',
+        };
     });
 
     return (
-        <Animated.View style={[styles.container, { height, opacity, transform: [{ translateY }] }]}>
+        <Animated.View style={[styles.container, animatedStyle]}>
             {children}
-            {/* We might need to ensure children don't overflow when height is small */}
         </Animated.View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        overflow: 'hidden',
         width: '100%',
+        backgroundColor: 'transparent', // Ensure it doesn't block background
     },
 });

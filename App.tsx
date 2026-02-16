@@ -26,14 +26,18 @@ function AppContent() {
   );
 }
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 export default function App() {
   return (
-    <Provider store={store}>
-      <PaperProvider theme={paperDarkTheme}>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </PaperProvider>
-    </Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        <PaperProvider theme={paperDarkTheme}>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </PaperProvider>
+      </Provider>
+    </GestureHandlerRootView>
   );
 }
