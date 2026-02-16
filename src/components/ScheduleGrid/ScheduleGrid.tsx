@@ -1,55 +1,123 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Animated, TouchableOpacity, Text } from 'react-native';
-
-import { FlashList } from '@shopify/flash-list';
+import {
+    View, StyleSheet, Dimensions, ActivityIndicator,
+    TouchableOpacity, Text, RefreshControl, Platform,
+} from 'react-native';
+import Animated, {
+    useSharedValue, useAnimatedScrollHandler,
+    useAnimatedRef, scrollTo, runOnJS,
+} from 'react-native-reanimated';
 import dayjs from 'dayjs';
 import { ChannelWithSchedules } from '../../types/channel';
-import { ScheduleRow } from './ScheduleRow';
-import { TimeHeader } from './TimeHeader';
-import { layout } from '../../theme/tokens';
-import { getTheme } from '../../theme';
+import { ProgramRow } from './ProgramRow';
+import { ChannelLogo } from './ChannelLogo';
+import { TimeHeaderMarkers } from './TimeHeader';
 import { CollapsibleBanner } from '../CollapsibleBanner';
+import { layout, fontSize, fontWeight } from '../../theme/tokens';
+import { getTheme } from '../../theme';
 
-const BANNER_TOTAL_HEIGHT = 152; // 120px content + 16px marginTop + 16px marginBottom
-const COLLAPSE_DURATION = 250; // ms
+const PIXELS_PER_MINUTE = layout.PIXELS_PER_MINUTE;
+const HOUR_WIDTH = 60 * PIXELS_PER_MINUTE;
+const TOTAL_WIDTH = 24 * HOUR_WIDTH;
+const CHANNEL_COL_WIDTH = layout.CHANNEL_LABEL_WIDTH_MOBILE;
+const ROW_HEIGHT = layout.ROW_HEIGHT_MOBILE;
+const TIME_HEADER_HEIGHT = layout.TIME_HEADER_HEIGHT;
 
 interface ScheduleGridProps {
     channels: ChannelWithSchedules[];
     loading: boolean;
+    bannerContent?: React.ReactNode;
+    stickyNavContent?: React.ReactNode;
+    onRefresh?: () => void;
+    refreshing?: boolean;
 }
 
-const PIXELS_PER_MINUTE = layout.PIXELS_PER_MINUTE; // 2
-const HOUR_WIDTH = 60 * PIXELS_PER_MINUTE; // 120
-const TOTAL_WIDTH = 24 * HOUR_WIDTH; // 2880
-const CHANNEL_COL_WIDTH = layout.CHANNEL_LABEL_WIDTH_MOBILE; // 122
-
-export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing }: ScheduleGridProps & { bannerContent?: React.ReactNode, stickyNavContent?: React.ReactNode, onRefresh?: () => void, refreshing?: boolean }) => {
-    const scrollViewRef = useRef<ScrollView>(null);
-    const scrollX = useRef(new Animated.Value(0)).current;
-    const initialScrollDone = useRef(false);
+export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing }: ScheduleGridProps) => {
     const theme = getTheme('dark');
 
+    // --- Scroll refs (reanimated, UI-thread capable) ---
+    const leftScrollRef = useAnimatedRef<Animated.ScrollView>();
+    const rightScrollRef = useAnimatedRef<Animated.ScrollView>();
+    const horizontalScrollRef = useAnimatedRef<Animated.ScrollView>();
 
+    const initialScrollDone = useRef(false);
 
-    // --- Horizontal scroll helpers ---
-    const scrollToNow = (animated: boolean = true) => {
-        if (scrollViewRef.current) {
-            const now = dayjs();
-            const minutes = now.hour() * 60 + now.minute();
-            const screenWidth = Dimensions.get('window').width;
-            const offset = (minutes * PIXELS_PER_MINUTE) - (screenWidth / 2) + (CHANNEL_COL_WIDTH / 2);
-            const targetX = Math.max(0, offset);
+    // --- Grid height measurement (inner vertical scroll needs explicit height) ---
+    const [gridHeight, setGridHeight] = useState(0);
+    const programsAreaHeight = gridHeight > 0 ? gridHeight - TIME_HEADER_HEIGHT : 0;
 
-            // Only set scrollX manually for instant (non-animated) scrolls.
-            // For animated scrolls, Animated.event tracks scrollX naturally
-            // via onScroll — setting it here would desync pinned elements.
-            if (!animated) {
-                scrollX.setValue(targetX);
-            }
-            scrollViewRef.current.scrollTo({ x: targetX, animated });
+    // --- Now line offset (no CHANNEL_COL_WIDTH — programs are in their own column) ---
+    const [nowOffset, setNowOffset] = useState(0);
+
+    const calculateOffset = useCallback(() => {
+        const now = dayjs();
+        const minutes = now.hour() * 60 + now.minute();
+        setNowOffset(minutes * PIXELS_PER_MINUTE);
+    }, []);
+
+    useEffect(() => {
+        calculateOffset();
+        const interval = setInterval(calculateOffset, 60000);
+        return () => clearInterval(interval);
+    }, [calculateOffset]);
+
+    // --- Banner collapse (binary: visible at top, hidden when scrolled) ---
+    const [isBannerVisible, setIsBannerVisible] = useState(true);
+
+    const handleBannerVisibility = useCallback((currentY: number) => {
+        const THRESHOLD = 10;
+        if (currentY <= THRESHOLD) {
+            setIsBannerVisible(true);
+        } else {
+            setIsBannerVisible(false);
         }
-    };
+    }, []);
 
+    // --- FAB visibility ---
+    const [isFabVisible, setIsFabVisible] = useState(false);
+
+    const checkFabVisibility = useCallback((offsetX: number) => {
+        const now = dayjs();
+        const minutes = now.hour() * 60 + now.minute();
+        const screenWidth = Dimensions.get('window').width;
+        const visibleProgramWidth = screenWidth - CHANNEL_COL_WIDTH;
+        const idealX = Math.max(0, (minutes * PIXELS_PER_MINUTE) - (visibleProgramWidth / 2));
+
+        if (Math.abs(offsetX - idealX) > visibleProgramWidth / 2) {
+            setIsFabVisible(true);
+        } else {
+            setIsFabVisible(false);
+        }
+    }, []);
+
+    // --- Vertical scroll sync: right drives left (UI thread, frame-perfect) ---
+    const onRightVerticalScroll = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            scrollTo(leftScrollRef, 0, event.contentOffset.y, false);
+            runOnJS(handleBannerVisibility)(event.contentOffset.y);
+        },
+    });
+
+    // --- Horizontal scroll handler ---
+    const onHorizontalScroll = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            runOnJS(checkFabVisibility)(event.contentOffset.x);
+        },
+    });
+
+    // --- Scroll to now ---
+    const scrollToNow = useCallback((animated: boolean = true) => {
+        const now = dayjs();
+        const minutes = now.hour() * 60 + now.minute();
+        const screenWidth = Dimensions.get('window').width;
+        const visibleProgramWidth = screenWidth - CHANNEL_COL_WIDTH;
+        const offset = (minutes * PIXELS_PER_MINUTE) - (visibleProgramWidth / 2);
+        const targetX = Math.max(0, offset);
+
+        scrollTo(horizontalScrollRef, targetX, 0, animated);
+    }, [horizontalScrollRef]);
+
+    // Auto-scroll on first successful load
     useEffect(() => {
         if (!loading && channels.length > 0 && !initialScrollDone.current) {
             setTimeout(() => {
@@ -57,71 +125,9 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 initialScrollDone.current = true;
             }, 100);
         }
-    }, [loading, channels]);
+    }, [loading, channels, scrollToNow]);
 
-    // --- Now line offset ---
-    const [nowOffset, setNowOffset] = useState(0);
-
-    const calculateOffset = () => {
-        const now = dayjs();
-        const minutes = now.hour() * 60 + now.minute();
-        setNowOffset(CHANNEL_COL_WIDTH + (minutes * PIXELS_PER_MINUTE));
-    };
-
-    useEffect(() => {
-        calculateOffset();
-        const interval = setInterval(calculateOffset, 60000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Banner Visibility State
-    const [isBannerVisible, setIsBannerVisible] = useState(true);
-    const lastScrollY = useRef(0);
-
-    const handleVerticalScroll = (event: any) => {
-        const currentY = event.nativeEvent.contentOffset.y;
-
-        // Threshold to avoid jitter
-        const diff = currentY - lastScrollY.current;
-
-        // Strict Spec Implementation:
-        const THRESHOLD = 10;
-
-        if (currentY <= THRESHOLD) {
-            // At top -> Show
-            if (!isBannerVisible) setIsBannerVisible(true);
-        } else if (currentY > THRESHOLD) {
-            // Scrolling down -> Hide
-            if (isBannerVisible) setIsBannerVisible(false);
-        }
-
-        lastScrollY.current = currentY;
-    };
-
-    // FAB Visibility Logic
-    const [isFabVisible, setIsFabVisible] = useState(false);
-
-    const checkFabVisibility = useCallback((offsetX: number) => {
-        const now = dayjs();
-        const minutes = now.hour() * 60 + now.minute();
-        const screenWidth = Dimensions.get('window').width;
-        // Calculate where "Now" is positioned
-        const idealX = Math.max(0, (minutes * PIXELS_PER_MINUTE) - (screenWidth / 2) + (CHANNEL_COL_WIDTH / 2));
-
-        // If current scroll X is different from ideal X by more than half screen width, show FAB
-        if (Math.abs(offsetX - idealX) > screenWidth / 2) {
-            setIsFabVisible(true);
-        } else {
-            setIsFabVisible(false);
-        }
-    }, []);
-
-    // BANNER scrolls away; STICKY_HEADER (days + categories + time) stays pinned
-    const flatListData = [
-        { type: 'STICKY_HEADER', id: 'STICKY_HEADER' },
-        ...channels.map(c => ({ type: 'CHANNEL', ...c }))
-    ];
-
+    // --- Loading state ---
     if (loading && channels.length === 0) {
         return (
             <View style={styles.loadingContainer}>
@@ -132,80 +138,103 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {/* Collapsible Banner — outside all scroll views */}
             <CollapsibleBanner isVisible={isBannerVisible}>
                 {bannerContent}
             </CollapsibleBanner>
-            <Animated.ScrollView
-                horizontal
-                ref={scrollViewRef}
-                style={{ flex: 1 }}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ minWidth: Dimensions.get('window').width }}
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                    {
-                        useNativeDriver: true,
-                        listener: (event: any) => {
-                            checkFabVisibility(event.nativeEvent.contentOffset.x);
-                        },
-                    }
-                )}
-                scrollEventThrottle={16}
-                bounces={false}
-            >
-                <View style={{ width: TOTAL_WIDTH + CHANNEL_COL_WIDTH }}>
-                    <FlashList
-                        data={flatListData}
-                        renderItem={({ item, index }) => {
-                            // REMOVED BANNER CASE
-                            if (item.type === 'STICKY_HEADER') {
-                                return (
-                                    <View style={{ backgroundColor: theme.colors.background }}>
-                                        <Animated.View style={{
-                                            width: Dimensions.get('window').width,
-                                            transform: [{ translateX: scrollX }],
-                                        }}>
-                                            {stickyNavContent}
-                                        </Animated.View>
-                                        <TimeHeader
-                                            width={TOTAL_WIDTH + CHANNEL_COL_WIDTH}
-                                            hourWidth={HOUR_WIDTH}
-                                            scrollX={scrollX}
-                                        />
-                                    </View>
-                                );
-                            }
-                            // Channel Item
-                            return (
-                                <ScheduleRow
-                                    channel={item as ChannelWithSchedules}
-                                    index={index - 1} // Adjustment for STICKY_HEADER only (was -2)
-                                    pixelsPerMinute={PIXELS_PER_MINUTE}
-                                    scrollX={scrollX}
-                                    nowOffset={nowOffset}
-                                />
-                            );
-                        }}
-                        // @ts-ignore
-                        estimatedItemSize={layout.ROW_HEIGHT_MOBILE}
-                        keyExtractor={(item: any) => {
-                            if (item.type === 'STICKY_HEADER') return 'sticky-header';
-                            return item.channel.id.toString();
-                        }}
-                        showsVerticalScrollIndicator={false}
-                        removeClippedSubviews={false}
-                        drawDistance={1000}
-                        stickyHeaderIndices={[0]} // STICKY_HEADER is now index 0
-                        onRefresh={onRefresh}
-                        refreshing={refreshing}
-                        getItemType={(item: any) => item.type}
-                        onScroll={handleVerticalScroll}
-                        scrollEventThrottle={16}
-                    />
-                </View>
-            </Animated.ScrollView>
 
-            {/* En Vivo FAB */}
+            {/* Day selector + Categories — FIXED, never scrolls */}
+            {stickyNavContent}
+
+            {/* Main grid: left column (logos) + right column (timeline) */}
+            <View
+                style={styles.gridContainer}
+                onLayout={(e) => setGridHeight(e.nativeEvent.layout.height)}
+            >
+                {/* LEFT COLUMN: CANAL label + channel logos */}
+                <View style={[styles.leftColumn, { backgroundColor: theme.colors.background }]}>
+                    <View style={[styles.canalLabel, {
+                        backgroundColor: theme.colors.background,
+                        borderRightColor: theme.colors.border,
+                        borderBottomColor: theme.colors.border,
+                    }]}>
+                        <Text style={[styles.canalText, { color: theme.colors.textSecondary }]}>
+                            CANAL
+                        </Text>
+                    </View>
+
+                    {programsAreaHeight > 0 && (
+                        <Animated.ScrollView
+                            ref={leftScrollRef}
+                            scrollEnabled={false}
+                            showsVerticalScrollIndicator={false}
+                            style={{ height: programsAreaHeight }}
+                        >
+                            {channels.map((channel) => (
+                                <View key={channel.channel.id} style={[styles.logoRow, {
+                                    backgroundColor: theme.colors.background,
+                                    borderRightColor: theme.colors.border,
+                                }]}>
+                                    <ChannelLogo channel={channel.channel} />
+                                </View>
+                            ))}
+                        </Animated.ScrollView>
+                    )}
+                </View>
+
+                {/* RIGHT COLUMN: time header + programs (horizontally scrollable) */}
+                <Animated.ScrollView
+                    ref={horizontalScrollRef}
+                    horizontal
+                    onScroll={onHorizontalScroll}
+                    scrollEventThrottle={16}
+                    showsHorizontalScrollIndicator={false}
+                    bounces={false}
+                    style={styles.rightColumn}
+                >
+                    <View style={{ width: TOTAL_WIDTH }}>
+                        {/* Hour markers — sticky vertically (outside vertical scroll) */}
+                        <TimeHeaderMarkers
+                            hourWidth={HOUR_WIDTH}
+                            totalWidth={TOTAL_WIDTH}
+                        />
+
+                        {/* Program rows — vertically scrollable */}
+                        {programsAreaHeight > 0 && (
+                            <Animated.ScrollView
+                                ref={rightScrollRef}
+                                onScroll={onRightVerticalScroll}
+                                scrollEventThrottle={16}
+                                showsVerticalScrollIndicator={false}
+                                nestedScrollEnabled={Platform.OS === 'android'}
+                                style={{ height: programsAreaHeight }}
+                                refreshControl={
+                                    onRefresh ? (
+                                        <RefreshControl
+                                            refreshing={refreshing ?? false}
+                                            onRefresh={onRefresh}
+                                            tintColor={theme.colors.primary}
+                                        />
+                                    ) : undefined
+                                }
+                            >
+                                {channels.map((channel, index) => (
+                                    <ProgramRow
+                                        key={channel.channel.id}
+                                        channel={channel}
+                                        index={index}
+                                        pixelsPerMinute={PIXELS_PER_MINUTE}
+                                        nowOffset={nowOffset}
+                                        totalWidth={TOTAL_WIDTH}
+                                    />
+                                ))}
+                            </Animated.ScrollView>
+                        )}
+                    </View>
+                </Animated.ScrollView>
+            </View>
+
+            {/* EN VIVO FAB */}
             {isFabVisible && (
                 <TouchableOpacity
                     style={[styles.fab, { backgroundColor: theme.colors.primary }]}
@@ -231,6 +260,38 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    gridContainer: {
+        flex: 1,
+        flexDirection: 'row',
+    },
+    leftColumn: {
+        width: CHANNEL_COL_WIDTH,
+        zIndex: 10,
+    },
+    canalLabel: {
+        width: CHANNEL_COL_WIDTH,
+        height: TIME_HEADER_HEIGHT,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+    },
+    canalText: {
+        fontWeight: fontWeight.bold,
+        fontSize: fontSize.xs,
+    },
+    logoRow: {
+        height: ROW_HEIGHT,
+        width: CHANNEL_COL_WIDTH,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+    },
+    rightColumn: {
+        flex: 1,
     },
     fab: {
         position: 'absolute',
@@ -259,5 +320,5 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: 'bold',
         fontSize: 14,
-    }
+    },
 });
