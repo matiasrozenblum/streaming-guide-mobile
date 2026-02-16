@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
     View, StyleSheet, Dimensions, ActivityIndicator,
-    TouchableOpacity, Text, RefreshControl, Platform,
+    TouchableOpacity, Text, RefreshControl, Platform, ScrollView
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedScrollHandler,
     useAnimatedRef, scrollTo, runOnJS, runOnUI,
-    useAnimatedReaction, withTiming,
+    useAnimatedReaction, useAnimatedStyle, withTiming,
 } from 'react-native-reanimated';
 import dayjs from 'dayjs';
 import { ChannelWithSchedules } from '../../types/channel';
@@ -14,6 +14,7 @@ import { ProgramRow } from './ProgramRow';
 import { ChannelLogo } from './ChannelLogo';
 import { TimeHeaderMarkers } from './TimeHeader';
 import { CollapsibleBanner } from '../CollapsibleBanner';
+import { LegalFooter } from '../LegalFooter';
 import { layout, fontSize, fontWeight } from '../../theme/tokens';
 import { getTheme } from '../../theme';
 
@@ -38,12 +39,11 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     // --- Refs ---
     const horizontalScrollRef = useAnimatedRef<Animated.ScrollView>();
-    const verticalScrollRef = useAnimatedRef<Animated.ScrollView>();
-    const leftColumnRef = useAnimatedRef<Animated.ScrollView>();
+    const mainVerticalRef = useAnimatedRef<Animated.ScrollView>();
 
     // --- Shared Values ---
     const scrollX = useSharedValue(0);
-    const scrollY = useSharedValue(0);
+    const scrollY = useSharedValue(0); // Driven by main vertical scroll
 
     const initialScrollDone = useRef(false);
 
@@ -60,13 +60,12 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         },
     });
 
-    // --- Sync Left Column (Logos) with Right Column (Programs) ---
-    useAnimatedReaction(
-        () => scrollY.value,
-        (y) => {
-            scrollTo(leftColumnRef, 0, y, false);
-        }
-    );
+    // --- Header Animation (Sync with horizontal scroll) ---
+    const headerStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateX: -scrollX.value }]
+        };
+    });
 
     // --- Now line offset ---
     const [nowOffset, setNowOffset] = useState(0);
@@ -85,6 +84,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     // --- FAB visibility ---
     const [isFabVisible, setIsFabVisible] = useState(false);
+    const WINDOW_WIDTH = Dimensions.get('window').width;
 
     // Helper to check FAB visibility on JS thread
     const checkFab = (currentX: number) => {
@@ -142,38 +142,77 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/* Collapsible Banner — outside all scroll views */}
-            <CollapsibleBanner scrollY={scrollY}>
-                {bannerContent}
-            </CollapsibleBanner>
+            {/* 
+                Main Vertical ScrollView handles the entire page vertical scrolling.
+                We use stickyHeaderIndices to keep the Banner, Day Selector, and Time Header at top.
+            */}
+            <Animated.ScrollView
+                ref={mainVerticalRef}
+                onScroll={onVerticalScroll}
+                scrollEventThrottle={16}
+                stickyHeaderIndices={[0]} // Index 0 is the Header Container (Banner + Nav + TimeHeader)
+                contentContainerStyle={{ paddingBottom: 0 }} // Footer has its own height
+                refreshControl={
+                    onRefresh ? (
+                        <RefreshControl
+                            refreshing={!!refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={theme.colors.primary}
+                            progressViewOffset={200} // Push loader down below headers
+                        />
+                    ) : undefined
+                }
+            >
+                {/* 
+                    STICKY HEADER CONTAINER 
+                    This entire block sticks to the top.
+                    It contains:
+                    1. Collapsible Banner (Self-collapsing based on scrollY)
+                    2. Sticky Nav (Day Selector)
+                    3. Grid Headers (Channel Label + Time Header)
+                */}
+                <View style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}>
+                    <CollapsibleBanner scrollY={scrollY}>
+                        {bannerContent}
+                    </CollapsibleBanner>
 
-            {/* Sticky Nav (Day Selector etc) */}
-            {stickyNavContent}
+                    {stickyNavContent}
 
-            {/* Main grid Layout */}
-            <View style={styles.gridContainer}>
+                    {/* Grid Header Row */}
+                    <View style={[styles.headerRow, { borderBottomColor: theme.colors.border }]}>
+                        {/* Channel Label Corner */}
+                        <View style={[styles.canalLabel, {
+                            backgroundColor: theme.colors.background,
+                            borderRightColor: theme.colors.border,
+                        }]}>
+                            <Text style={[styles.canalText, { color: theme.colors.textSecondary }]}>
+                                CANAL
+                            </Text>
+                        </View>
 
-                {/* LEFT COLUMN: Fixed X, Scrolls Y (Synced) */}
-                <View style={[styles.leftColumn, { backgroundColor: theme.colors.background, zIndex: 20 }]}>
-                    {/* Corner Label (Fixed) */}
-                    <View style={[styles.canalLabel, {
-                        backgroundColor: theme.colors.background,
-                        borderRightColor: theme.colors.border,
-                        borderBottomColor: theme.colors.border,
-                        zIndex: 30,
-                    }]}>
-                        <Text style={[styles.canalText, { color: theme.colors.textSecondary }]}>
-                            CANAL
-                        </Text>
+                        {/* Time Header (Synced with Horizontal Scroll) */}
+                        <View style={styles.timeHeaderContainer}>
+                            <Animated.View style={[
+                                { width: TOTAL_WIDTH, height: TIME_HEADER_HEIGHT },
+                                headerStyle
+                            ]}>
+                                <TimeHeaderMarkers
+                                    hourWidth={HOUR_WIDTH}
+                                    totalWidth={TOTAL_WIDTH}
+                                />
+                            </Animated.View>
+                        </View>
                     </View>
+                </View>
 
-                    {/* Scroller for Logos */}
-                    <Animated.ScrollView
-                        ref={leftColumnRef}
-                        showsVerticalScrollIndicator={false}
-                        scrollEnabled={false} // Disable touch, strictly controlled by sync
-                        style={{ flex: 1 }}
-                    >
+                {/* 
+                    MAIN CONTENT ROW 
+                    Left: Channel Logos (Static column)
+                    Right: Program Grid (Horizontal ScrollView)
+                */}
+                <View style={styles.gridRow}>
+                    {/* Left Column: Logos */}
+                    <View style={[styles.leftColumn, { backgroundColor: theme.colors.background }]}>
                         {channels.map((channel) => (
                             <View key={channel.channel.id} style={[styles.logoRow, {
                                 backgroundColor: theme.colors.background,
@@ -182,61 +221,40 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                                 <ChannelLogo channel={channel.channel} />
                             </View>
                         ))}
-                    </Animated.ScrollView>
-                </View>
+                    </View>
 
-                {/* RIGHT COLUMN: Scrolls X (Horizontal) */}
-                <View style={styles.rightColumn}>
-                    <Animated.ScrollView
-                        ref={horizontalScrollRef}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        onScroll={onHorizontalScroll}
-                        scrollEventThrottle={16}
-                    >
-                        <View>
-                            {/* Time Header (Sticky within Horizontal) */}
-                            <View style={{ height: TIME_HEADER_HEIGHT, zIndex: 15 }}>
-                                <TimeHeaderMarkers
-                                    hourWidth={HOUR_WIDTH}
-                                    totalWidth={TOTAL_WIDTH}
-                                />
+                    {/* Right Column: Horizontally Scrollable Programs */}
+                    <View style={styles.rightColumn}>
+                        <Animated.ScrollView
+                            ref={horizontalScrollRef}
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            onScroll={onHorizontalScroll}
+                            scrollEventThrottle={16}
+                        >
+                            <View>
+                                {channels.map((channel, index) => (
+                                    <ProgramRow
+                                        key={channel.channel.id}
+                                        channel={channel}
+                                        index={index}
+                                        pixelsPerMinute={PIXELS_PER_MINUTE}
+                                        nowOffset={nowOffset}
+                                        totalWidth={TOTAL_WIDTH}
+                                    />
+                                ))}
                             </View>
-
-                            {/* Main Vertical Content (Scrolls Y) */}
-                            <Animated.ScrollView
-                                ref={verticalScrollRef}
-                                showsVerticalScrollIndicator={true}
-                                onScroll={onVerticalScroll}
-                                scrollEventThrottle={16}
-                                contentContainerStyle={{ flexDirection: 'column' }}
-                                refreshControl={
-                                    onRefresh ? (
-                                        <RefreshControl
-                                            refreshing={!!refreshing}
-                                            onRefresh={onRefresh}
-                                            tintColor={theme.colors.primary}
-                                        />
-                                    ) : undefined
-                                }
-                            >
-                                <View style={{ width: TOTAL_WIDTH }}>
-                                    {channels.map((channel, index) => (
-                                        <ProgramRow
-                                            key={channel.channel.id}
-                                            channel={channel}
-                                            index={index}
-                                            pixelsPerMinute={PIXELS_PER_MINUTE}
-                                            nowOffset={nowOffset}
-                                            totalWidth={TOTAL_WIDTH}
-                                        />
-                                    ))}
-                                </View>
-                            </Animated.ScrollView>
-                        </View>
-                    </Animated.ScrollView>
+                        </Animated.ScrollView>
+                    </View>
                 </View>
-            </View>
+
+                {/* Footer at the bottom of the page */}
+                <LegalFooter width={WINDOW_WIDTH} />
+
+                {/* Extra padding for nav bar */}
+                <View style={{ height: 80 }} />
+
+            </Animated.ScrollView>
 
             {/* EN VIVO FAB */}
             {isFabVisible && (
@@ -256,21 +274,16 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        overflow: 'hidden',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    gridContainer: {
-        flex: 1,
+    headerRow: {
         flexDirection: 'row',
-    },
-    leftColumn: {
-        width: CHANNEL_COL_WIDTH,
+        height: TIME_HEADER_HEIGHT,
+        borderBottomWidth: 1,
         zIndex: 10,
     },
     canalLabel: {
@@ -279,27 +292,39 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderRightWidth: 1,
-        borderBottomWidth: 1,
+        zIndex: 20,
     },
     canalText: {
         fontWeight: fontWeight.bold,
         fontSize: fontSize.xs,
+    },
+    timeHeaderContainer: {
+        flex: 1,
+        overflow: 'hidden', // Clip the sliding header
+    },
+    gridRow: {
+        flexDirection: 'row',
+    },
+    leftColumn: {
+        width: CHANNEL_COL_WIDTH,
+        borderRightWidth: 1,
+        borderRightColor: 'rgba(255, 255, 255, 0.12)',
     },
     logoRow: {
         height: ROW_HEIGHT,
         width: CHANNEL_COL_WIDTH,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRightWidth: 1,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.12)',
     },
     rightColumn: {
         flex: 1,
+        overflow: 'hidden',
     },
     fab: {
         position: 'absolute',
-        bottom: 84,
+        bottom: 84, // Above tab bar
         right: 16,
         flexDirection: 'row',
         alignItems: 'center',
