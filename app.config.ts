@@ -117,7 +117,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ios: {
             supportsTablet: true,
             bundleIdentifier: getUniqueIdentifier(),
-            googleServicesFile: IS_STAGING ? "./GoogleService-Info.staging.plist" : "./GoogleService-Info.plist"
+            googleServicesFile: IS_STAGING ? "./GoogleService-Info.staging.plist" : "./GoogleService-Info.plist",
+            infoPlist: {
+                ITSAppUsesNonExemptEncryption: false
+            }
         },
         android: {
             adaptiveIcon: {

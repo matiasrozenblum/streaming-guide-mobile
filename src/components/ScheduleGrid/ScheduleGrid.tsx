@@ -40,7 +40,12 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
             const offset = (minutes * PIXELS_PER_MINUTE) - (screenWidth / 2) + (CHANNEL_COL_WIDTH / 2);
             const targetX = Math.max(0, offset);
 
-            scrollX.setValue(targetX);
+            // Only set scrollX manually for instant (non-animated) scrolls.
+            // For animated scrolls, Animated.event tracks scrollX naturally
+            // via onScroll — setting it here would desync pinned elements.
+            if (!animated) {
+                scrollX.setValue(targetX);
+            }
             scrollViewRef.current.scrollTo({ x: targetX, animated });
         }
     };
