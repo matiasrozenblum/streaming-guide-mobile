@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -8,14 +9,29 @@ import { StreamerService } from '../services/streamer.service';
 import { StreamerCard } from '../components/StreamerCard';
 
 export const StreamersScreen = () => {
+    const { session } = useAuth();
     const [streamers, setStreamers] = useState<Streamer[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [subscriptionLoading, setSubscriptionLoading] = useState<Record<number, boolean>>({});
 
     const fetchStreamers = async () => {
         try {
             const data = await StreamerService.getAll();
-            setStreamers(data);
+
+            // If logged in, fetch subscriptions
+            if (session?.accessToken) {
+                const subscribedIds = await StreamerService.getSubscriptions(session.accessToken);
+                const subscribedSet = new Set(subscribedIds);
+
+                const streamersWithSub = data.map(s => ({
+                    ...s,
+                    is_subscribed: subscribedSet.has(s.id)
+                }));
+                setStreamers(streamersWithSub);
+            } else {
+                setStreamers(data);
+            }
         } catch (error) {
             console.error('Failed to fetch streamers', error);
         } finally {
@@ -26,15 +42,53 @@ export const StreamersScreen = () => {
 
     useEffect(() => {
         fetchStreamers();
-    }, []);
+    }, [session?.accessToken]); // Re-fetch when session changes
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchStreamers();
-    }, []);
+    }, [session?.accessToken]);
+
+    const handleToggleSubscription = async (streamer: Streamer) => {
+        if (!session?.accessToken) {
+            // TODO: Navigate to login
+            return;
+        }
+
+        const isSubscribed = streamer.is_subscribed;
+        const newStatus = !isSubscribed;
+
+        // Optimistic update
+        setStreamers(prev => prev.map(s =>
+            s.id === streamer.id ? { ...s, is_subscribed: newStatus } : s
+        ));
+        setSubscriptionLoading(prev => ({ ...prev, [streamer.id]: true }));
+
+        try {
+            if (newStatus) {
+                await StreamerService.subscribe(streamer.id, session.accessToken);
+            } else {
+                await StreamerService.unsubscribe(streamer.id, session.accessToken);
+            }
+        } catch (error) {
+            console.error('Error toggling subscription:', error);
+            // Revert on error
+            setStreamers(prev => prev.map(s =>
+                s.id === streamer.id ? { ...s, is_subscribed: isSubscribed } : s
+            ));
+        } finally {
+            setSubscriptionLoading(prev => ({ ...prev, [streamer.id]: false }));
+        }
+    };
 
     const renderItem = ({ item, index }: { item: Streamer; index: number }) => (
-        <StreamerCard streamer={item} index={index} />
+        <StreamerCard
+            streamer={item}
+            index={index}
+            onToggleSubscription={() => handleToggleSubscription(item)}
+            isSubscriptionLoading={!!subscriptionLoading[item.id]}
+            isAuthenticated={!!session}
+        />
     );
 
     return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Streamer, StreamingService } from '../types/streamer';
 import { getColorForChannel } from '../utils/colors';
@@ -11,9 +11,12 @@ import { getTheme } from '../theme';
 interface Props {
     streamer: Streamer;
     index: number;
+    onToggleSubscription?: () => void;
+    isSubscriptionLoading?: boolean;
+    isAuthenticated?: boolean;
 }
 
-export const StreamerCard = ({ streamer, index }: Props) => {
+export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscriptionLoading, isAuthenticated }: Props) => {
     const { openVideo } = useVideoPlayer();
     const theme = getTheme('dark'); // TODO: Get from context
 
@@ -68,6 +71,25 @@ export const StreamerCard = ({ streamer, index }: Props) => {
                         {streamer.is_live ? 'LIVE' : 'OFFLINE'}
                     </Text>
                 </View>
+
+                {/* Subscription Button - Top Left */}
+                {isAuthenticated && onToggleSubscription && (
+                    <TouchableOpacity
+                        style={styles.subscriptionButton}
+                        onPress={onToggleSubscription}
+                        disabled={isSubscriptionLoading}
+                    >
+                        {isSubscriptionLoading ? (
+                            <ActivityIndicator size="small" color="#FFD700" />
+                        ) : (
+                            <MaterialCommunityIcons
+                                name={streamer.is_subscribed ? "bell" : "bell-outline"}
+                                size={20}
+                                color={streamer.is_subscribed ? "#FFD700" : "#FFFFFF"}
+                            />
+                        )}
+                    </TouchableOpacity>
+                )}
 
                 {/* Avatar/Logo */}
                 {streamer.logo_url ? (
@@ -220,6 +242,15 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 10,
         fontWeight: 'bold',
+    },
+    subscriptionButton: {
+        position: 'absolute',
+        top: 6,
+        left: 6,
+        padding: 4,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 5,
     },
     image: {
         width: '100%',

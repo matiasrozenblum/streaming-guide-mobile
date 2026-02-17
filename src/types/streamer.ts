@@ -21,5 +21,6 @@ export interface Streamer {
     is_live: boolean;
     services: StreamerService[];
     categories: Category[];
+    is_subscribed?: boolean;
     // Add other fields if needed from backend response
 }
