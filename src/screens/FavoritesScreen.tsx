@@ -4,36 +4,41 @@ import { Text, Card, Button, ActivityIndicator, IconButton, Menu } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { subscriptionsApi } from '../services/api';
+import { StreamerService } from '../services/streamer.service';
+import { Streamer, StreamingService } from '../types/streamer';
 import { useNavigation } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Linking } from 'react-native';
 
 enum NotificationMethod {
-  PUSH = 'push',
-  EMAIL = 'email',
-  BOTH = 'both',
+    PUSH = 'push',
+    EMAIL = 'email',
+    BOTH = 'both',
 }
 
 interface Subscription {
-  id: string;
-  program: {
-    id: number;
-    name: string;
-    description?: string;
-    logoUrl?: string;
-    channel: {
-      id: number;
-      name: string;
-      order?: number;
+    id: string;
+    program: {
+        id: number;
+        name: string;
+        description?: string;
+        logoUrl?: string;
+        channel: {
+            id: number;
+            name: string;
+            order?: number;
+        };
     };
-  };
-  notificationMethod: NotificationMethod;
-  isActive: boolean;
-  createdAt: string;
+    notificationMethod: NotificationMethod;
+    isActive: boolean;
+    createdAt: string;
 }
 
 export const FavoritesScreen = () => {
     const navigation = useNavigation();
     const { session } = useAuth();
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const [streamerSubscriptions, setStreamerSubscriptions] = useState<Streamer[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [menuVisible, setMenuVisible] = useState<string | null>(null);
@@ -53,8 +58,22 @@ export const FavoritesScreen = () => {
         setError('');
 
         try {
-            const response = await subscriptionsApi.getSubscriptions(session.accessToken);
-            setSubscriptions(response.subscriptions || []);
+            // Fetch program subscriptions
+            const subsResponse = await subscriptionsApi.getSubscriptions(session.accessToken);
+            setSubscriptions(subsResponse.subscriptions || []);
+
+            // Fetch streamer subscriptions
+            const [allStreamers, subscribedIds] = await Promise.all([
+                StreamerService.getAll(),
+                StreamerService.getSubscriptions(session.accessToken)
+            ]);
+
+            const subscribedStreamers = allStreamers
+                .filter(s => subscribedIds.includes(s.id))
+                .map(s => ({ ...s, is_subscribed: true }));
+
+            setStreamerSubscriptions(subscribedStreamers);
+
         } catch (err) {
             setError('Error al cargar tus favoritos');
         } finally {
@@ -89,7 +108,7 @@ export const FavoritesScreen = () => {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await subscriptionsApi.deleteSubscription(subscriptionId, session.accessToken);
+                            await subscriptionsApi.deleteSubscription(subscriptionId, session.accessToken as string);
                             setSubscriptions(prev => prev.filter(sub => sub.id !== subscriptionId));
                         } catch (err) {
                             Alert.alert('Error', 'No se pudo cancelar la suscripción');
@@ -98,6 +117,36 @@ export const FavoritesScreen = () => {
                 },
             ]
         );
+    };
+
+    const handleUnsubscribeStreamer = async (streamerId: number) => {
+        if (!session?.accessToken) return;
+
+        Alert.alert(
+            'Dejar de seguir',
+            '¿Estás seguro de que deseas dejar de seguir a este streamer?',
+            [
+                { text: 'Volver', style: 'cancel' },
+                {
+                    text: 'Dejar de seguir',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await StreamerService.unsubscribe(streamerId, session.accessToken as string);
+                            setStreamerSubscriptions(prev => prev.filter(s => s.id !== streamerId));
+                        } catch (err) {
+                            Alert.alert('Error', 'No se pudo dejar de seguir al streamer');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleOpenStream = (url: string) => {
+        if (url) {
+            Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+        }
     };
 
     const getMethodLabel = (method: NotificationMethod) => {
@@ -163,14 +212,166 @@ export const FavoritesScreen = () => {
                     </Text>
                 ) : null}
 
-                {subscriptions.length === 0 ? (
+                {/* Programs Section */}
+                {subscriptions.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <MaterialIcons name="notifications-active" size={24} color="#60a5fa" />
+                            <Text variant="titleLarge" style={styles.sectionTitle}>Programas</Text>
+                        </View>
+                        {subscriptions.map((subscription) => (
+                            <Card key={subscription.id} style={styles.subscriptionCard}>
+                                <Card.Content>
+                                    <View style={styles.cardHeader}>
+                                        <View style={styles.cardHeaderText}>
+                                            <Text variant="titleLarge" style={styles.programName}>
+                                                {subscription.program.name}
+                                            </Text>
+                                            <Text variant="bodySmall" style={styles.channelName}>
+                                                {subscription.program.channel.name}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {subscription.program.description && (
+                                        <Text
+                                            variant="bodyMedium"
+                                            style={styles.description}
+                                            numberOfLines={2}
+                                        >
+                                            {subscription.program.description}
+                                        </Text>
+                                    )}
+
+                                    <View style={styles.notificationSection}>
+                                        <Text variant="labelMedium" style={styles.notificationLabel}>
+                                            Notificaciones:
+                                        </Text>
+                                        <Menu
+                                            visible={menuVisible === subscription.id}
+                                            onDismiss={() => setMenuVisible(null)}
+                                            anchor={
+                                                <Button
+                                                    mode="outlined"
+                                                    onPress={() => setMenuVisible(subscription.id)}
+                                                    style={styles.methodButton}
+                                                    contentStyle={styles.methodButtonContent}
+                                                >
+                                                    {getMethodLabel(subscription.notificationMethod)}
+                                                </Button>
+                                            }
+                                        >
+                                            <Menu.Item
+                                                onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.BOTH)}
+                                                title="Push y Email"
+                                            />
+                                            <Menu.Item
+                                                onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.PUSH)}
+                                                title="Solo Push"
+                                            />
+                                            <Menu.Item
+                                                onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.EMAIL)}
+                                                title="Solo Email"
+                                            />
+                                        </Menu>
+                                    </View>
+                                </Card.Content>
+
+                                <Card.Actions style={styles.cardActions}>
+                                    <Text variant="bodySmall" style={styles.dateText}>
+                                        Desde {new Date(subscription.createdAt).toLocaleDateString('es-ES', {
+                                            day: 'numeric',
+                                            month: 'short',
+                                            year: 'numeric'
+                                        })}
+                                    </Text>
+                                    <IconButton
+                                        icon="delete"
+                                        iconColor="#ef4444"
+                                        size={20}
+                                        onPress={() => handleDelete(subscription.id)}
+                                    />
+                                </Card.Actions>
+                            </Card>
+                        ))}
+                    </View>
+                )}
+
+                {/* Streamers Section */}
+                {streamerSubscriptions.length > 0 && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <MaterialIcons name="live-tv" size={24} color="#60a5fa" />
+                            <Text variant="titleLarge" style={styles.sectionTitle}>Streamers</Text>
+                        </View>
+                        {streamerSubscriptions.map((streamer) => (
+                            <Card key={streamer.id} style={styles.subscriptionCard}>
+                                <Card.Content style={{ paddingBottom: 0 }}>
+                                    <View style={styles.cardHeader}>
+                                        <View style={styles.cardHeaderText}>
+                                            <Text variant="titleLarge" style={styles.programName}>
+                                                {streamer.name}
+                                            </Text>
+                                            <View style={styles.categoriesContainer}>
+                                                {streamer.categories?.map(cat => (
+                                                    <View key={cat.id} style={[styles.categoryBadge, { borderColor: cat.color || '#60a5fa' }]}>
+                                                        <Text style={[styles.categoryText, { color: cat.color || '#60a5fa' }]}>
+                                                            {cat.name}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </View>
+                                        {streamer.is_live && (
+                                            <View style={styles.liveBadge}>
+                                                <Text style={styles.liveText}>LIVE</Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    <Text variant="bodyMedium" style={styles.description}>
+                                        Recibirás notificaciones cuando {streamer.name} inicie transmisión.
+                                    </Text>
+
+                                    <View style={styles.servicesContainer}>
+                                        {streamer.services.map((service, idx) => (
+                                            <Button
+                                                key={idx}
+                                                mode="outlined"
+                                                compact
+                                                onPress={() => handleOpenStream(service.url)}
+                                                style={[styles.serviceButton, { borderColor: service.service === 'twitch' ? '#9146FF' : service.service === 'kick' ? '#53FC18' : '#FF0000' }]}
+                                                labelStyle={{ color: service.service === 'twitch' ? '#9146FF' : service.service === 'kick' ? '#53FC18' : '#FF0000', marginVertical: 4 }}
+                                            >
+                                                Ver en {service.service === StreamingService.TWITCH ? 'Twitch' : service.service === StreamingService.KICK ? 'Kick' : 'YouTube'}
+                                            </Button>
+                                        ))}
+                                    </View>
+
+                                </Card.Content>
+
+                                <Card.Actions style={styles.cardActions}>
+                                    <View style={{ flex: 1 }} />
+                                    <IconButton
+                                        icon="delete"
+                                        iconColor="#ef4444"
+                                        size={20}
+                                        onPress={() => handleUnsubscribeStreamer(streamer.id)}
+                                    />
+                                </Card.Actions>
+                            </Card>
+                        ))}
+                    </View>
+                )}
+
+                {subscriptions.length === 0 && streamerSubscriptions.length === 0 && (
                     <Card style={styles.emptyCard}>
                         <Card.Content style={styles.emptyCardContent}>
                             <Text variant="headlineSmall" style={styles.emptyCardTitle}>
                                 No tienes suscripciones activas
                             </Text>
                             <Text variant="bodyMedium" style={styles.emptyCardText}>
-                                Suscríbete a tus programas favoritos haciendo clic en el ícono de campanita en la grilla de programación
+                                Suscríbete a tus programas o streamers favoritos para recibir notificaciones
                             </Text>
                             <Button
                                 mode="contained"
@@ -181,82 +382,6 @@ export const FavoritesScreen = () => {
                             </Button>
                         </Card.Content>
                     </Card>
-                ) : (
-                    subscriptions.map((subscription) => (
-                        <Card key={subscription.id} style={styles.subscriptionCard}>
-                            <Card.Content>
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.cardHeaderText}>
-                                        <Text variant="titleLarge" style={styles.programName}>
-                                            {subscription.program.name}
-                                        </Text>
-                                        <Text variant="bodySmall" style={styles.channelName}>
-                                            {subscription.program.channel.name}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {subscription.program.description && (
-                                    <Text
-                                        variant="bodyMedium"
-                                        style={styles.description}
-                                        numberOfLines={2}
-                                    >
-                                        {subscription.program.description}
-                                    </Text>
-                                )}
-
-                                <View style={styles.notificationSection}>
-                                    <Text variant="labelMedium" style={styles.notificationLabel}>
-                                        Notificaciones:
-                                    </Text>
-                                    <Menu
-                                        visible={menuVisible === subscription.id}
-                                        onDismiss={() => setMenuVisible(null)}
-                                        anchor={
-                                            <Button
-                                                mode="outlined"
-                                                onPress={() => setMenuVisible(subscription.id)}
-                                                style={styles.methodButton}
-                                                contentStyle={styles.methodButtonContent}
-                                            >
-                                                {getMethodLabel(subscription.notificationMethod)}
-                                            </Button>
-                                        }
-                                    >
-                                        <Menu.Item
-                                            onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.BOTH)}
-                                            title="Push y Email"
-                                        />
-                                        <Menu.Item
-                                            onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.PUSH)}
-                                            title="Solo Push"
-                                        />
-                                        <Menu.Item
-                                            onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.EMAIL)}
-                                            title="Solo Email"
-                                        />
-                                    </Menu>
-                                </View>
-                            </Card.Content>
-
-                            <Card.Actions style={styles.cardActions}>
-                                <Text variant="bodySmall" style={styles.dateText}>
-                                    Desde {new Date(subscription.createdAt).toLocaleDateString('es-ES', {
-                                        day: 'numeric',
-                                        month: 'short',
-                                        year: 'numeric'
-                                    })}
-                                </Text>
-                                <IconButton
-                                    icon="delete"
-                                    iconColor="#ef4444"
-                                    size={20}
-                                    onPress={() => handleDelete(subscription.id)}
-                                />
-                            </Card.Actions>
-                        </Card>
-                    ))
                 )}
             </ScrollView>
         </SafeAreaView>
@@ -375,4 +500,55 @@ const styles = StyleSheet.create({
     dateText: {
         color: '#9ca3af',
     },
+    section: {
+        marginBottom: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 8,
+    },
+    sectionTitle: {
+        color: '#f3f4f6',
+        fontWeight: 'bold',
+    },
+    categoriesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginTop: 4,
+    },
+    categoryBadge: {
+        borderWidth: 1,
+        borderRadius: 4,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    categoryText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    liveBadge: {
+        backgroundColor: '#ef4444',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginLeft: 8,
+    },
+    liveText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    servicesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+        marginBottom: 8,
+    },
+    serviceButton: {
+        borderWidth: 1,
+    }
 });
