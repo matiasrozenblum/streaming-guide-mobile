@@ -15,8 +15,8 @@
     "ios:prod": "APP_VARIANT=production npx expo run:ios",
     "web": "npx expo start --web",
     "build:android": "npx expo prebuild --platform android --clean && cd android && ./gradlew assembleRelease",
-    "build:android:staging": "APP_VARIANT=staging npx expo prebuild --platform android --clean && cd android && ./gradlew assembleRelease",
-    "build:android:prod": "APP_VARIANT=production npx expo prebuild --platform android --clean && cd android && ./gradlew assembleRelease",
+    "build:android:staging": "APP_VARIANT=staging npx expo prebuild --platform android --clean && cd android && APP_VARIANT=staging ./gradlew assembleRelease",
+    "build:android:prod": "APP_VARIANT=production npx expo prebuild --platform android --clean && cd android && APP_VARIANT=production ./gradlew assembleRelease",
     "build:ios": "expo run:ios --configuration Release --device",
     "build:ios:sim": "expo run:ios --configuration Release"
   },
