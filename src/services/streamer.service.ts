@@ -27,7 +27,7 @@ export const StreamerService = {
     },
 
     subscribe: async (streamerId: number, accessToken: string): Promise<void> => {
-        await api.post(`/streamers/${streamerId}/subscribe`, { notificationMethod: 'both' }, {
+        await api.post(`/streamers/${streamerId}/subscribe`, {}, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
             },

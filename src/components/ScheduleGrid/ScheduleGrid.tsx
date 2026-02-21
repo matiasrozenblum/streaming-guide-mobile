@@ -218,7 +218,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                                 backgroundColor: theme.colors.background,
                                 borderRightColor: theme.colors.border,
                             }]}>
-                                <ChannelLogo channel={channel.channel} />
+                                <ChannelLogo channel={{ ...channel.channel, logo_url: channel.channel.logo_url || '' }} />
                             </View>
                         ))}
                     </View>
@@ -258,14 +258,16 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
             {/* EN VIVO FAB */}
             {isFabVisible && (
-                <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                    onPress={() => scrollToNow(true)}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.fabDot} />
-                    <Text style={styles.fabText}>EN VIVO</Text>
-                </TouchableOpacity>
+                <View style={styles.fabWrapper} pointerEvents="box-none">
+                    <TouchableOpacity
+                        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+                        onPress={() => scrollToNow(true)}
+                        activeOpacity={0.8}
+                    >
+                        <View style={styles.fabDot} />
+                        <Text style={styles.fabText}>EN VIVO</Text>
+                    </TouchableOpacity>
+                </View>
             )}
         </View>
     );
@@ -322,10 +324,15 @@ const styles = StyleSheet.create({
         flex: 1,
         overflow: 'hidden',
     },
-    fab: {
+    fabWrapper: {
         position: 'absolute',
-        bottom: 84, // Above tab bar
-        right: 16,
+        bottom: 100, // Lifted slightly higher above tab bar
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 50,
+    },
+    fab: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
@@ -336,7 +343,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
-        zIndex: 50,
     },
     fabDot: {
         width: 8,

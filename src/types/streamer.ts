@@ -22,5 +22,6 @@ export interface Streamer {
     services: StreamerService[];
     categories: Category[];
     is_subscribed?: boolean;
+    order?: number;
     // Add other fields if needed from backend response
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Button, ActivityIndicator, IconButton, Menu } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Image, Linking, Pressable } from 'react-native';
+import { Text, ActivityIndicator, IconButton, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { subscriptionsApi } from '../services/api';
@@ -8,13 +8,9 @@ import { StreamerService } from '../services/streamer.service';
 import { Streamer, StreamingService } from '../types/streamer';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Linking } from 'react-native';
-
-enum NotificationMethod {
-    PUSH = 'push',
-    EMAIL = 'email',
-    BOTH = 'both',
-}
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getColorForChannel } from '../utils/colors';
+import { SvgUri } from 'react-native-svg';
 
 interface Subscription {
     id: string;
@@ -22,17 +18,135 @@ interface Subscription {
         id: number;
         name: string;
         description?: string;
-        logoUrl?: string;
+        logo_url?: string;
         channel: {
             id: number;
             name: string;
-            order?: number;
+            logo_url?: string;
+            background_color?: string; // Add background_color
         };
     };
-    notificationMethod: NotificationMethod;
     isActive: boolean;
     createdAt: string;
 }
+
+// Reusable Tile Component
+const SubscriptionTile = ({
+    title,
+    subtitle,
+    imageUrl,
+    imageColor,
+    isStreamer,
+    onDelete,
+    onPress,
+    services
+}: {
+    title: string,
+    subtitle?: React.ReactNode,
+    imageUrl?: string,
+    imageColor?: string,
+    isStreamer?: boolean,
+    onDelete: () => void,
+    onPress?: () => void,
+    services?: { service: StreamingService, url: string }[]
+}) => {
+    const [showDelete, setShowDelete] = useState(false);
+
+    const handlePress = () => {
+        if (onPress) {
+            onPress();
+        } else {
+            // Toggle delete button visibility on tap if no other action
+            setShowDelete(prev => !prev);
+        }
+    };
+
+    return (
+        <Pressable
+            onPress={handlePress}
+            style={styles.tileContainer}
+        >
+            {/* Avatar Section */}
+            <View style={[styles.avatarContainer, { backgroundColor: imageColor || '#1e293b' }]}>
+                {imageUrl ? (
+                    imageUrl.toLowerCase().endsWith('.svg') || imageUrl.includes('.svg?') ? (
+                        <View style={isStreamer ? styles.streamerAvatarImage : styles.avatarImage}>
+                            <SvgUri
+                                width="100%"
+                                height="100%"
+                                uri={imageUrl}
+                            />
+                        </View>
+                    ) : (
+                        <Image
+                            source={{ uri: imageUrl }}
+                            style={isStreamer ? styles.streamerAvatarImage : styles.avatarImage}
+                            resizeMode={isStreamer ? "cover" : "contain"}
+                        />
+                    )
+                ) : (
+                    <Text style={styles.avatarPlaceholderText}>
+                        {title.charAt(0).toUpperCase()}
+                    </Text>
+                )}
+            </View>
+
+            {/* Content Section */}
+            <View style={styles.contentContainer}>
+                <View style={styles.titleRow}>
+                    <Text variant="titleMedium" style={styles.tileTitle} numberOfLines={1}>
+                        {title.toUpperCase()}
+                    </Text>
+                </View>
+
+                {subtitle && <View style={styles.subtitleContainer}>{subtitle}</View>}
+
+                {/* Services Row */}
+                {services && services.length > 0 && (
+                    <View style={styles.servicesRow}>
+                        <Text style={styles.subText}>EN</Text>
+                        {services.filter(s => s.service === StreamingService.TWITCH || s.service === StreamingService.KICK).map((s, idx) => (
+                            <TouchableOpacity
+                                key={idx}
+                                style={styles.serviceIconContainer}
+                                onPress={() => Linking.openURL(s.url)}
+                            >
+                                {s.service === StreamingService.TWITCH ? (
+                                    <MaterialCommunityIcons name="twitch" size={20} color="#9146FF" />
+                                ) : (
+                                    <Image
+                                        source={{ uri: 'https://dwtkmfahaokhtpuafhsc.supabase.co/storage/v1/object/sign/streaming-services-logos/Kick%20Icon%20(Green).png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84ZWQzMzdmNy04YmEwLTQxYjAtYmJjOS05YjI2NjVhZWYwYzIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzdHJlYW1pbmctc2VydmljZXMtbG9nb3MvS2ljayBJY29uIChHcmVlbikucG5nIiwiaWF0IjoxNzYzNTIwODQyLCJleHAiOjE3OTUwNTY4NDJ9.3cqNHCk9mYT4k6E7mUiIDIA8CWXWIKTUQK1iThtSrmo' }}
+                                        style={{ width: 20, height: 20 }}
+                                        resizeMode="contain"
+                                    />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+            </View>
+
+            {/* Delete Button (Conditional) */}
+            {showDelete && (
+                <IconButton
+                    icon="close"
+                    iconColor="#ef4444"
+                    size={20}
+                    onPress={onDelete}
+                    style={styles.deleteButton}
+                    mode="contained"
+                    containerColor="rgba(30, 41, 59, 0.9)"
+                />
+            )}
+
+            {/* Always visible trigger area for delete if not toggled? 
+                Actually, simpler to just have a subtle X or allow the toggle behavior as requested.
+                Let's stick to the toggle on press for now, or long press? 
+                User asked for "tapping the card". 
+            */}
+        </Pressable>
+    );
+};
 
 export const FavoritesScreen = () => {
     const navigation = useNavigation();
@@ -41,7 +155,9 @@ export const FavoritesScreen = () => {
     const [streamerSubscriptions, setStreamerSubscriptions] = useState<Streamer[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [menuVisible, setMenuVisible] = useState<string | null>(null);
+
+    const [isProgramsExpanded, setIsProgramsExpanded] = useState(true);
+    const [isStreamersExpanded, setIsStreamersExpanded] = useState(true);
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -53,27 +169,20 @@ export const FavoritesScreen = () => {
 
     const loadSubscriptions = async () => {
         if (!session?.accessToken) return;
-
         setLoading(true);
         setError('');
-
         try {
-            // Fetch program subscriptions
             const subsResponse = await subscriptionsApi.getSubscriptions(session.accessToken);
             setSubscriptions(subsResponse.subscriptions || []);
 
-            // Fetch streamer subscriptions
             const [allStreamers, subscribedIds] = await Promise.all([
                 StreamerService.getAll(),
                 StreamerService.getSubscriptions(session.accessToken)
             ]);
-
             const subscribedStreamers = allStreamers
                 .filter(s => subscribedIds.includes(s.id))
                 .map(s => ({ ...s, is_subscribed: true }));
-
             setStreamerSubscriptions(subscribedStreamers);
-
         } catch (err) {
             setError('Error al cargar tus favoritos');
         } finally {
@@ -81,474 +190,182 @@ export const FavoritesScreen = () => {
         }
     };
 
-    const handleUpdateMethod = async (subscriptionId: string, method: NotificationMethod) => {
-        if (!session?.accessToken) return;
-
-        try {
-            await subscriptionsApi.updateSubscription(subscriptionId, method, session.accessToken);
-            setSubscriptions(prev => prev.map(sub =>
-                sub.id === subscriptionId ? { ...sub, notificationMethod: method } : sub
-            ));
-            setMenuVisible(null);
-        } catch (err) {
-            Alert.alert('Error', 'No se pudo actualizar las preferencias');
-        }
-    };
-
     const handleDelete = async (subscriptionId: string) => {
-        if (!session?.accessToken) return;
-
-        Alert.alert(
-            'Cancelar suscripción',
-            '¿Estás seguro de que deseas cancelar esta suscripción?',
-            [
-                { text: 'Volver', style: 'cancel' },
-                {
-                    text: 'Cancelar suscripción',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await subscriptionsApi.deleteSubscription(subscriptionId, session.accessToken as string);
-                            setSubscriptions(prev => prev.filter(sub => sub.id !== subscriptionId));
-                        } catch (err) {
-                            Alert.alert('Error', 'No se pudo cancelar la suscripción');
-                        }
-                    },
-                },
-            ]
-        );
+        Alert.alert('Cancelar suscripción', '¿Estás seguro?', [
+            { text: 'Volver', style: 'cancel' },
+            {
+                text: 'Sí', style: 'destructive', onPress: async () => {
+                    await subscriptionsApi.deleteSubscription(subscriptionId, session!.accessToken!);
+                    setSubscriptions(prev => prev.filter(s => s.id !== subscriptionId));
+                }
+            }
+        ]);
     };
 
     const handleUnsubscribeStreamer = async (streamerId: number) => {
-        if (!session?.accessToken) return;
-
-        Alert.alert(
-            'Dejar de seguir',
-            '¿Estás seguro de que deseas dejar de seguir a este streamer?',
-            [
-                { text: 'Volver', style: 'cancel' },
-                {
-                    text: 'Dejar de seguir',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await StreamerService.unsubscribe(streamerId, session.accessToken as string);
-                            setStreamerSubscriptions(prev => prev.filter(s => s.id !== streamerId));
-                        } catch (err) {
-                            Alert.alert('Error', 'No se pudo dejar de seguir al streamer');
-                        }
-                    },
-                },
-            ]
-        );
+        Alert.alert('Dejar de seguir', '¿Estás seguro?', [
+            { text: 'Volver', style: 'cancel' },
+            {
+                text: 'Sí', style: 'destructive', onPress: async () => {
+                    await StreamerService.unsubscribe(streamerId, session!.accessToken!);
+                    setStreamerSubscriptions(prev => prev.filter(s => s.id !== streamerId));
+                }
+            }
+        ]);
     };
 
-    const handleOpenStream = (url: string) => {
-        if (url) {
-            Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
-        }
-    };
-
-    const getMethodLabel = (method: NotificationMethod) => {
-        switch (method) {
-            case NotificationMethod.BOTH:
-                return 'Push y Email';
-            case NotificationMethod.PUSH:
-                return 'Solo Push';
-            case NotificationMethod.EMAIL:
-                return 'Solo Email';
-            default:
-                return method;
-        }
-    };
-
-    if (!session) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.emptyContainer}>
-                    <Text variant="headlineMedium" style={styles.emptyText}>
-                        Por favor inicia sesión
-                    </Text>
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    if (loading) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" />
-                </View>
-            </SafeAreaView>
-        );
-    }
+    if (!session) return (<SafeAreaView style={styles.container}><Text style={styles.textCenter}>Inicia sesión</Text></SafeAreaView>);
+    if (loading) return (<SafeAreaView style={styles.container}><ActivityIndicator size="large" /></SafeAreaView>);
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                 <View style={styles.header}>
                     <View>
-                        <Text variant="headlineMedium" style={styles.title}>
-                            Mis Favoritos
-                        </Text>
-                        <Text variant="bodyMedium" style={styles.subtitle}>
-                            Gestiona tus suscripciones y preferencias
-                        </Text>
+                        <Text variant="headlineMedium" style={styles.title}>Mis Favoritos</Text>
+                        <Text variant="bodyMedium" style={styles.subtitle}>Gestiona tus suscripciones</Text>
                     </View>
-                    <Button
-                        mode="outlined"
-                        onPress={() => navigation.goBack()}
-                        icon="arrow-left"
-                        style={styles.backButton}
-                    >
-                        Volver
-                    </Button>
                 </View>
 
-                {error ? (
-                    <Text variant="bodyMedium" style={styles.errorText}>
-                        {error}
-                    </Text>
-                ) : null}
-
                 {/* Programs Section */}
-                {subscriptions.length > 0 && (
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <MaterialIcons name="notifications-active" size={24} color="#60a5fa" />
-                            <Text variant="titleLarge" style={styles.sectionTitle}>Programas</Text>
-                        </View>
-                        {subscriptions.map((subscription) => (
-                            <Card key={subscription.id} style={styles.subscriptionCard}>
-                                <Card.Content>
-                                    <View style={styles.cardHeader}>
-                                        <View style={styles.cardHeaderText}>
-                                            <Text variant="titleLarge" style={styles.programName}>
-                                                {subscription.program.name}
-                                            </Text>
-                                            <Text variant="bodySmall" style={styles.channelName}>
-                                                {subscription.program.channel.name}
-                                            </Text>
-                                        </View>
+                <View style={styles.section}>
+                    <TouchableOpacity
+                        style={styles.sectionHeader}
+                        onPress={() => setIsProgramsExpanded(!isProgramsExpanded)}
+                    >
+                        <Text variant="titleMedium" style={styles.sectionTitle}>PROGRAMAS</Text>
+                        <MaterialCommunityIcons
+                            name={isProgramsExpanded ? "chevron-up" : "chevron-down"}
+                            size={24}
+                            color="#94a3b8"
+                        />
+                    </TouchableOpacity>
+                    {isProgramsExpanded && (
+                        <>
+                            <View style={styles.grid}>
+                                {subscriptions.map(sub => (
+                                    <View key={sub.id} style={styles.gridItem}>
+                                        <SubscriptionTile
+                                            title={sub.program.name}
+                                            subtitle={<Text style={styles.subText}>EN <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{sub.program.channel.name.toUpperCase()}</Text></Text>}
+                                            imageUrl={sub.program.channel.logo_url}
+                                            imageColor={sub.program.channel.background_color || '#ffffff'}
+                                            onDelete={() => handleDelete(sub.id)}
+                                        />
                                     </View>
-
-                                    {subscription.program.description && (
-                                        <Text
-                                            variant="bodyMedium"
-                                            style={styles.description}
-                                            numberOfLines={2}
-                                        >
-                                            {subscription.program.description}
-                                        </Text>
-                                    )}
-
-                                    <View style={styles.notificationSection}>
-                                        <Text variant="labelMedium" style={styles.notificationLabel}>
-                                            Notificaciones:
-                                        </Text>
-                                        <Menu
-                                            visible={menuVisible === subscription.id}
-                                            onDismiss={() => setMenuVisible(null)}
-                                            anchor={
-                                                <Button
-                                                    mode="outlined"
-                                                    onPress={() => setMenuVisible(subscription.id)}
-                                                    style={styles.methodButton}
-                                                    contentStyle={styles.methodButtonContent}
-                                                >
-                                                    {getMethodLabel(subscription.notificationMethod)}
-                                                </Button>
-                                            }
-                                        >
-                                            <Menu.Item
-                                                onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.BOTH)}
-                                                title="Push y Email"
-                                            />
-                                            <Menu.Item
-                                                onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.PUSH)}
-                                                title="Solo Push"
-                                            />
-                                            <Menu.Item
-                                                onPress={() => handleUpdateMethod(subscription.id, NotificationMethod.EMAIL)}
-                                                title="Solo Email"
-                                            />
-                                        </Menu>
-                                    </View>
-                                </Card.Content>
-
-                                <Card.Actions style={styles.cardActions}>
-                                    <Text variant="bodySmall" style={styles.dateText}>
-                                        Desde {new Date(subscription.createdAt).toLocaleDateString('es-ES', {
-                                            day: 'numeric',
-                                            month: 'short',
-                                            year: 'numeric'
-                                        })}
-                                    </Text>
-                                    <IconButton
-                                        icon="delete"
-                                        iconColor="#ef4444"
-                                        size={20}
-                                        onPress={() => handleDelete(subscription.id)}
-                                    />
-                                </Card.Actions>
-                            </Card>
-                        ))}
-                    </View>
-                )}
+                                ))}
+                            </View>
+                            {subscriptions.length === 0 && <Text style={styles.emptyText}>No tienes programas favoritos.</Text>}
+                        </>
+                    )}
+                </View>
 
                 {/* Streamers Section */}
-                {streamerSubscriptions.length > 0 && (
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <MaterialIcons name="live-tv" size={24} color="#60a5fa" />
-                            <Text variant="titleLarge" style={styles.sectionTitle}>Streamers</Text>
-                        </View>
-                        {streamerSubscriptions.map((streamer) => (
-                            <Card key={streamer.id} style={styles.subscriptionCard}>
-                                <Card.Content style={{ paddingBottom: 0 }}>
-                                    <View style={styles.cardHeader}>
-                                        <View style={styles.cardHeaderText}>
-                                            <Text variant="titleLarge" style={styles.programName}>
-                                                {streamer.name}
-                                            </Text>
-                                            <View style={styles.categoriesContainer}>
-                                                {streamer.categories?.map(cat => (
-                                                    <View key={cat.id} style={[styles.categoryBadge, { borderColor: cat.color || '#60a5fa' }]}>
-                                                        <Text style={[styles.categoryText, { color: cat.color || '#60a5fa' }]}>
-                                                            {cat.name}
-                                                        </Text>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        </View>
-                                        {streamer.is_live && (
-                                            <View style={styles.liveBadge}>
-                                                <Text style={styles.liveText}>LIVE</Text>
-                                            </View>
-                                        )}
+                <View style={styles.section}>
+                    <TouchableOpacity
+                        style={styles.sectionHeader}
+                        onPress={() => setIsStreamersExpanded(!isStreamersExpanded)}
+                    >
+                        <Text variant="titleMedium" style={styles.sectionTitle}>STREAMERS</Text>
+                        <MaterialCommunityIcons
+                            name={isStreamersExpanded ? "chevron-up" : "chevron-down"}
+                            size={24}
+                            color="#94a3b8"
+                        />
+                    </TouchableOpacity>
+                    {isStreamersExpanded && (
+                        <>
+                            <View style={styles.grid}>
+                                {streamerSubscriptions.map(streamer => (
+                                    <View key={streamer.id} style={styles.gridItem}>
+                                        <SubscriptionTile
+                                            title={streamer.name}
+                                            imageUrl={streamer.logo_url || undefined}
+                                            imageColor={getColorForChannel((streamer.order ?? 1) - 1)}
+                                            isStreamer={true}
+                                            onDelete={() => handleUnsubscribeStreamer(streamer.id)}
+                                            services={streamer.services}
+                                        />
                                     </View>
-
-                                    <Text variant="bodyMedium" style={styles.description}>
-                                        Recibirás notificaciones cuando {streamer.name} inicie transmisión.
-                                    </Text>
-
-                                    <View style={styles.servicesContainer}>
-                                        {streamer.services.map((service, idx) => (
-                                            <Button
-                                                key={idx}
-                                                mode="outlined"
-                                                compact
-                                                onPress={() => handleOpenStream(service.url)}
-                                                style={[styles.serviceButton, { borderColor: service.service === 'twitch' ? '#9146FF' : service.service === 'kick' ? '#53FC18' : '#FF0000' }]}
-                                                labelStyle={{ color: service.service === 'twitch' ? '#9146FF' : service.service === 'kick' ? '#53FC18' : '#FF0000', marginVertical: 4 }}
-                                            >
-                                                Ver en {service.service === StreamingService.TWITCH ? 'Twitch' : service.service === StreamingService.KICK ? 'Kick' : 'YouTube'}
-                                            </Button>
-                                        ))}
-                                    </View>
-
-                                </Card.Content>
-
-                                <Card.Actions style={styles.cardActions}>
-                                    <View style={{ flex: 1 }} />
-                                    <IconButton
-                                        icon="delete"
-                                        iconColor="#ef4444"
-                                        size={20}
-                                        onPress={() => handleUnsubscribeStreamer(streamer.id)}
-                                    />
-                                </Card.Actions>
-                            </Card>
-                        ))}
-                    </View>
-                )}
-
-                {subscriptions.length === 0 && streamerSubscriptions.length === 0 && (
-                    <Card style={styles.emptyCard}>
-                        <Card.Content style={styles.emptyCardContent}>
-                            <Text variant="headlineSmall" style={styles.emptyCardTitle}>
-                                No tienes suscripciones activas
-                            </Text>
-                            <Text variant="bodyMedium" style={styles.emptyCardText}>
-                                Suscríbete a tus programas o streamers favoritos para recibir notificaciones
-                            </Text>
-                            <Button
-                                mode="contained"
-                                onPress={() => navigation.navigate('Home' as never)}
-                                style={styles.emptyCardButton}
-                            >
-                                Ir a la programación
-                            </Button>
-                        </Card.Content>
-                    </Card>
-                )}
+                                ))}
+                            </View>
+                            {streamerSubscriptions.length === 0 && <Text style={styles.emptyText}>No sigues a ningún streamer.</Text>}
+                        </>
+                    )}
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#0f172a',
-    },
-    scroll: {
-        flex: 1,
-    },
-    content: {
-        padding: 16,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 24,
-    },
-    title: {
-        color: '#f3f4f6',
-        fontWeight: 'bold',
-    },
-    subtitle: {
-        color: '#9ca3af',
-        marginTop: 4,
-    },
-    backButton: {
-        borderColor: 'rgba(255,255,255,0.2)',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyText: {
-        color: '#9ca3af',
-    },
-    errorText: {
-        color: '#ef4444',
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    emptyCard: {
-        backgroundColor: '#1e293b',
-    },
-    emptyCardContent: {
-        alignItems: 'center',
-        paddingVertical: 32,
-    },
-    emptyCardTitle: {
-        color: '#f3f4f6',
-        textAlign: 'center',
-        marginBottom: 16,
-    },
-    emptyCardText: {
-        color: '#9ca3af',
-        textAlign: 'center',
-        marginBottom: 24,
-        maxWidth: 300,
-    },
-    emptyCardButton: {
-        marginTop: 8,
-    },
-    subscriptionCard: {
-        marginBottom: 16,
-        backgroundColor: '#1e293b',
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
-    cardHeaderText: {
-        flex: 1,
-    },
-    programName: {
-        color: '#f3f4f6',
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    channelName: {
-        color: '#60a5fa',
-    },
-    description: {
-        color: '#9ca3af',
-        marginBottom: 16,
-    },
-    notificationSection: {
-        marginTop: 8,
-    },
-    notificationLabel: {
-        color: '#f3f4f6',
-        marginBottom: 8,
-    },
-    methodButton: {
-        borderColor: 'rgba(255,255,255,0.2)',
-    },
-    methodButtonContent: {
-        justifyContent: 'flex-start',
-    },
-    cardActions: {
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-    },
-    dateText: {
-        color: '#9ca3af',
-    },
-    section: {
-        marginBottom: 24,
-    },
+    container: { flex: 1, backgroundColor: '#0f172a' },
+    scroll: { flex: 1 },
+    content: { padding: 16 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, alignItems: 'flex-start' },
+    title: { color: '#f3f4f6', fontWeight: 'bold' },
+    subtitle: { color: '#9ca3af', marginTop: 4 },
+    section: { marginBottom: 32 },
     sectionHeader: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
-        gap: 8,
+        marginBottom: 12
     },
-    sectionTitle: {
-        color: '#f3f4f6',
-        fontWeight: 'bold',
-    },
-    categoriesContainer: {
+    sectionTitle: { color: '#94a3b8', fontWeight: 'bold', letterSpacing: 0.5, fontSize: 12 },
+    textCenter: { textAlign: 'center', color: '#fff', marginTop: 20 },
+    emptyText: { color: '#64748b', fontStyle: 'italic' },
+
+    // Grid
+    grid: { flexDirection: 'column', gap: 12 },
+    gridItem: { width: '100%' }, // 1 column to stretch across the screen
+
+    // Tile Styles
+    tileContainer: {
+        height: 72,
+        backgroundColor: '#1e293b',
+        borderRadius: 8,
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 6,
-        marginTop: 4,
-    },
-    categoryBadge: {
+        alignItems: 'center',
+        overflow: 'hidden',
         borderWidth: 1,
-        borderRadius: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
+        borderColor: '#334155',
+        position: 'relative'
     },
-    categoryText: {
-        fontSize: 10,
-        fontWeight: 'bold',
+    avatarContainer: {
+        width: 72,
+        height: 72,
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+        overflow: 'hidden' // Ensure cover images stay within the rounded borders
     },
-    liveBadge: {
-        backgroundColor: '#ef4444',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-        marginLeft: 8,
+    avatarImage: { width: 64, height: 64 },
+    streamerAvatarImage: { width: '100%', height: '100%' },
+    avatarPlaceholderText: { color: '#fff', fontWeight: 'bold', fontSize: 24 },
+    contentContainer: {
+        flex: 1,
+        paddingHorizontal: 8,
+        justifyContent: 'center',
     },
-    liveText: {
-        color: 'white',
-        fontSize: 10,
-        fontWeight: 'bold',
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    tileTitle: {
+        color: '#f1f5f9', fontWeight: 'bold', fontSize: 15, flex: 1
     },
-    servicesContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginTop: 8,
-        marginBottom: 8,
+    subText: { color: '#94a3b8', fontSize: 13 },
+    subtitleContainer: { marginTop: 2 },
+
+    servicesRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+    serviceIconContainer: {
+        width: 24, height: 24, justifyContent: 'center', alignItems: 'center',
+        opacity: 0.8
     },
-    serviceButton: {
-        borderWidth: 1,
+
+    deleteButton: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        margin: 0,
+        zIndex: 10
     }
 });

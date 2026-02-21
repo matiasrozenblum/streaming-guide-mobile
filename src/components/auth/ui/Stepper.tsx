@@ -42,7 +42,19 @@ export const Stepper = ({ currentStep, steps }: StepperProps) => {
 
                 return (
                     <View key={step} style={styles.stepWrapper}>
-                        <View style={styles.stepRow}>
+                        <View style={styles.iconContainer}>
+                            {!isLast && (
+                                <View
+                                    style={[
+                                        styles.connector,
+                                        {
+                                            backgroundColor: isCompleted
+                                                ? theme.colors.primary
+                                                : theme.colors.surfaceVariant,
+                                        },
+                                    ]}
+                                />
+                            )}
                             <View
                                 style={[
                                     styles.iconCircle,
@@ -62,18 +74,6 @@ export const Stepper = ({ currentStep, steps }: StepperProps) => {
                                     color={isHighlighted ? '#FFFFFF' : theme.colors.onSurfaceDisabled ?? '#666'}
                                 />
                             </View>
-                            {!isLast && (
-                                <View
-                                    style={[
-                                        styles.connector,
-                                        {
-                                            backgroundColor: isCompleted
-                                                ? theme.colors.primary
-                                                : theme.colors.surfaceVariant,
-                                        },
-                                    ]}
-                                />
-                            )}
                         </View>
                         <Text
                             style={[
@@ -107,11 +107,12 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
     },
-    stepRow: {
-        flexDirection: 'row',
+    iconContainer: {
         alignItems: 'center',
-        width: '100%',
         justifyContent: 'center',
+        width: '100%',
+        height: 36, // Match iconCircle height
+        marginBottom: 4,
     },
     iconCircle: {
         width: 36,
@@ -120,16 +121,21 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         alignItems: 'center',
         justifyContent: 'center',
+        zIndex: 2, // Ensure icon stays on top of connector
+        backgroundColor: 'transparent', // Will be overridden dynamically
     },
     connector: {
-        flex: 1,
-        height: 3,
-        borderRadius: 1.5,
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: '100%', // Spans from center of current to center of next (approx)
+        height: 2, // Thinner line
+        marginTop: -1, // Center vertically
+        zIndex: 1,
     },
     label: {
         fontSize: 12,
         fontWeight: '600',
-        marginTop: 4,
         textAlign: 'center',
     },
 });

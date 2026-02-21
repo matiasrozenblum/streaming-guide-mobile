@@ -1,4 +1,4 @@
-import { MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
+import { MD3DarkTheme, MD3LightTheme, configureFonts } from 'react-native-paper';
 import { alpha } from './tokens';
 
 export const palette = {
@@ -81,12 +81,17 @@ export const getTheme = (mode: 'light' | 'dark') => {
 
 export type Theme = ReturnType<typeof getTheme>;
 
+const fontConfig = {
+    fontFamily: 'Inter_400Regular',
+};
+
 /**
  * Custom React Native Paper theme matching the website's color palette.
  * Replaces default Material 3 purple accents with our blue brand colors.
  */
 export const paperDarkTheme = {
     ...MD3DarkTheme,
+    fonts: configureFonts({ config: fontConfig }),
     colors: {
         ...MD3DarkTheme.colors,
         // Primary
@@ -144,6 +149,7 @@ export const paperDarkTheme = {
 
 export const paperLightTheme = {
     ...MD3LightTheme,
+    fonts: configureFonts({ config: fontConfig }),
     colors: {
         ...MD3LightTheme.colors,
         primary: palette.brand.primaryLight,               // #2563EB

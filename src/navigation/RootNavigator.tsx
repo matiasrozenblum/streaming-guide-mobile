@@ -16,6 +16,7 @@ export const RootNavigator = () => {
                 options={{
                     headerShown: true,
                     title: 'Mi perfil',
+                    headerBackTitle: 'Inicio',
                     headerStyle: { backgroundColor: '#111827' },
                     headerTintColor: '#fff'
                 }}
@@ -26,6 +27,7 @@ export const RootNavigator = () => {
                 options={{
                     headerShown: true,
                     title: 'Favoritos',
+                    headerBackTitle: 'Inicio',
                     headerStyle: { backgroundColor: '#111827' },
                     headerTintColor: '#fff'
                 }}

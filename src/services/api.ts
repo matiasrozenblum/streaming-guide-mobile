@@ -174,9 +174,7 @@ export const subscriptionsApi = {
 
   // Subscribe to program (POST /programs/:id/subscribe)
   subscribe: async (programId: number, accessToken: string) => {
-    const response = await api.post(`/programs/${programId}/subscribe`, {
-      notificationMethod: 'both',
-    }, {
+    const response = await api.post(`/programs/${programId}/subscribe`, {}, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -205,10 +203,8 @@ export const subscriptionsApi = {
   },
 
   // Update subscription notification method (PUT /subscriptions/:id)
-  updateSubscription: async (subscriptionId: string, notificationMethod: string, accessToken: string) => {
-    const response = await api.put(`/subscriptions/${subscriptionId}`, {
-      notificationMethod,
-    }, {
+  updateSubscription: async (subscriptionId: string, accessToken: string) => {
+    const response = await api.put(`/subscriptions/${subscriptionId}`, {}, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

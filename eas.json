@@ -23,6 +23,11 @@
                 "simulator": true
             }
         },
+        "staging-testflight": {
+            "env": {
+                "APP_VARIANT": "staging"
+            }
+        },
         "production": {
             "env": {
                 "APP_VARIANT": "production"
@@ -36,6 +41,7 @@
         }
     },
     "submit": {
+        "staging-testflight": {},
         "production": {}
     }
 }
