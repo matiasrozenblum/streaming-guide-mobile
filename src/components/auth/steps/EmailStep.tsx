@@ -5,11 +5,12 @@ import { TextInput, Button, HelperText, Divider, Text, useTheme } from 'react-na
 interface EmailStepProps {
     initialEmail?: string;
     onSubmit: (email: string) => void;
+    onAppleLogin?: () => void;
     isLoading: boolean;
     error?: string;
 }
 
-export const EmailStep = ({ initialEmail = '', onSubmit, isLoading, error }: EmailStepProps) => {
+export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, isLoading, error }: EmailStepProps) => {
     const [email, setEmail] = useState(initialEmail);
     const [localError, setLocalError] = useState('');
     const theme = useTheme();
@@ -81,6 +82,15 @@ export const EmailStep = ({ initialEmail = '', onSubmit, isLoading, error }: Ema
             <View style={styles.socialContainer}>
                 <Button
                     mode="outlined"
+                    icon="apple"
+                    onPress={onAppleLogin}
+                    style={styles.socialButton}
+                    textColor={theme.colors.onSurface}
+                >
+                    Continuar con Apple
+                </Button>
+                <Button
+                    mode="outlined"
                     icon="google"
                     onPress={() => setLocalError('Google login no disponible en esta versión')}
                     style={styles.socialButton}
@@ -90,7 +100,7 @@ export const EmailStep = ({ initialEmail = '', onSubmit, isLoading, error }: Ema
                 </Button>
                 {/* Facebook button commented out in web, so we leave it out here too */}
             </View>
-        </View>
+        </View >
     );
 };
 

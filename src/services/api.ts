@@ -97,6 +97,33 @@ export const authApi = {
     return response.data;
   },
 
+  // Social Login
+  socialLogin: async (data: { email: string; firstName?: string; lastName?: string; origin: string; gender?: string; birthDate?: string }) => {
+    const response = await api.post('/auth/social-login', data);
+    return response.data;
+  },
+
+  // Complete Profile
+  completeProfile: async (data: {
+    registration_token: string;
+    firstName: string;
+    lastName: string;
+    gender: string;
+    birthDate: string;
+  }) => {
+    const deviceId = await DeviceService.getDeviceId();
+    const platform = await getPlatform();
+    const appVersion = Application.nativeApplicationVersion || '1.0.0';
+
+    const response = await api.post('/auth/complete-profile', {
+      ...data,
+      deviceId,
+      platform,
+      appVersion,
+    });
+    return response.data;
+  },
+
   // Refresh access token
   refreshToken: async (refreshToken: string) => {
     const response = await api.post('/auth/refresh', {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Modal, Portal, Text, IconButton, useTheme } from 'react-native-paper';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/api';
 
@@ -147,6 +148,76 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     }
   };
 
+  const handleAppleLogin = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // email is only guaranteed on the first login.
+      // If we don't have it here, it means the user already authorized the app.
+      // But we need the email to send to backend or the backend decodes the identity token.
+      // Usually, it's better to verify the identityToken in backend.
+      // For now, let's implement the API request using email if available, or parse token (if backend supports it).
+      // Since backend requires email and we might not get it on subsequent logins:
+      // The backend `/auth/social-login` currently requires `email` in body.
+      // We will extract email from identityToken payload locally as a workaround since backend doesn't verify Apple JWT yet.
+      // (A robust solution involves backend verifying apple token, but we conform to the existing `social-login` endpoint).
+
+      let appleEmail = credential.email;
+      if (!appleEmail && credential.identityToken) {
+        // Decode JWT payload to get email
+        const parts = credential.identityToken.split('.');
+        if (parts.length === 3) {
+          try {
+            const payload = JSON.parse(atob(parts[1]));
+            appleEmail = payload.email;
+          } catch (e) {
+            console.error('Could not parse Apple identity token', e);
+          }
+        }
+      }
+
+      if (!appleEmail) {
+        throw new Error('No se pudo obtener el email de Apple');
+      }
+
+      const response = await authApi.socialLogin({
+        email: appleEmail,
+        firstName: credential.fullName?.givenName || undefined,
+        lastName: credential.fullName?.familyName || undefined,
+        origin: 'apple',
+      });
+
+      if (response.profileIncomplete) {
+        setEmail(appleEmail);
+        if (response.user.firstName) setFirstName(response.user.firstName);
+        if (response.user.lastName) setLastName(response.user.lastName);
+        setRegistrationToken(response.registration_token);
+        setStep('profile');
+        setPhase('flow');
+      } else {
+        await login(response.access_token, response.refresh_token);
+        handleClose();
+      }
+
+    } catch (e: any) {
+      if (e.code === 'ERR_REQUEST_CANCELED' || e.code === 'ERR_CANCELED') {
+        // User canceled, do nothing
+      } else {
+        setError('Error al iniciar sesión con Apple. ' + (e.message || ''));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleProfileSubmit = (f: string, l: string, b: string, g: string) => {
     setFirstName(f);
     setLastName(l);
@@ -224,7 +295,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const renderContent = () => {
     switch (step) {
       case 'email':
-        return <EmailStep onSubmit={handleEmailSubmit} isLoading={loading} error={error} initialEmail={email} />;
+        return <EmailStep onSubmit={handleEmailSubmit} onAppleLogin={handleAppleLogin} isLoading={loading} error={error} initialEmail={email} />;
       case 'code':
         return (
           <CodeStep
@@ -251,7 +322,10 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
             initialBirthDate={birthDate}
             initialGender={gender}
             onSubmit={handleProfileSubmit}
-            onBack={() => setStep('code')} // Or email? Web goes to email and resets phase
+            onBack={() => {
+              setStep('email');
+              setPhase('email');
+            }}
             isLoading={loading}
             error={error}
           />
