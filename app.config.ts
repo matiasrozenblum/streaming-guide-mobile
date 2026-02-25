@@ -125,7 +125,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
         android: {
             adaptiveIcon: {
-                foregroundImage: getAppIcon(),
+                foregroundImage: "./assets/adaptive-icon.png",
                 backgroundColor: "#0f172a"
             },
             package: getUniqueIdentifier(),
@@ -156,7 +156,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             [
                 "expo-notifications",
                 {
-                    "icon": "./assets/app-icon.png",
+                    "icon": "./assets/notification-icon.png",
                     "color": "#2563eb",
                     "defaultChannel": "streaming_alerts"
                 }
