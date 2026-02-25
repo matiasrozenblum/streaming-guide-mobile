@@ -24,6 +24,7 @@
             }
         },
         "staging-testflight": {
+            "autoIncrement": true,
             "env": {
                 "APP_VARIANT": "staging"
             }
