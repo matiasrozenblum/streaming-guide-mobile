@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Modal, Portal, Text, IconButton, useTheme } from 'react-native-paper';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/api';
 
@@ -31,6 +33,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const [step, setStep] = useState<StepKey>('email');
   const [isUserExisting, setIsUserExisting] = useState(false);
   const [phase, setPhase] = useState<'email' | 'flow'>('email');
+  const [authOrigin, setAuthOrigin] = useState<'traditional' | 'apple' | 'google'>('traditional');
 
   // Data
   const [email, setEmail] = useState('');
@@ -55,6 +58,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     setStep('email');
     setPhase('email');
     setIsUserExisting(false);
+    setAuthOrigin('traditional');
     setEmail('');
     setCode('');
     setRegistrationToken('');
@@ -197,6 +201,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
 
       if (response.profileIncomplete) {
         setEmail(appleEmail);
+        setAuthOrigin('apple');
         if (response.user.firstName) setFirstName(response.user.firstName);
         if (response.user.lastName) setLastName(response.user.lastName);
         setRegistrationToken(response.registration_token);
@@ -218,12 +223,92 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     }
   };
 
-  const handleProfileSubmit = (f: string, l: string, b: string, g: string) => {
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      GoogleSignin.configure({
+        webClientId: Constants.expoConfig?.extra?.googleClientIds?.web,
+        iosClientId: Constants.expoConfig?.extra?.googleClientIds?.ios,
+      });
+
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const user = userInfo.data ? userInfo.data.user : (userInfo as any).user || userInfo; // Handle different react-native-google-signin version payload shapes
+
+      const emailToUse = user.email || (user as any).user?.email;
+
+      if (!emailToUse) {
+        throw new Error('No se pudo obtener el email de Google');
+      }
+
+      const response = await authApi.socialLogin({
+        email: emailToUse,
+        firstName: user.givenName || undefined,
+        lastName: user.familyName || undefined,
+        origin: 'google',
+      });
+
+      if (response.profileIncomplete) {
+        setEmail(emailToUse);
+        setAuthOrigin('google');
+        if (response.user.firstName) setFirstName(response.user.firstName);
+        if (response.user.lastName) setLastName(response.user.lastName);
+        setRegistrationToken(response.registration_token);
+        setStep('profile');
+        setPhase('flow');
+      } else {
+        await login(response.access_token, response.refresh_token);
+        handleClose();
+      }
+
+    } catch (e: any) {
+      if (e.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User canceled
+      } else if (e.code === statusCodes.IN_PROGRESS) {
+        // In progress
+      } else if (e.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setError('Google Play Services no disponible o desactualizado.');
+      } else {
+        setError('Error al iniciar sesión con Google. ' + (e.message || ''));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProfileSubmit = async (f: string, l: string, b: string, g: string) => {
     setFirstName(f);
     setLastName(l);
     setBirthDate(b);
     setGender(g);
-    setStep('password');
+
+    if (authOrigin !== 'traditional') {
+      setLoading(true);
+      setError('');
+      try {
+        const [d, m, y] = b.split('/');
+        const formattedDate = `${y}-${m}-${d}`;
+
+        const response = await authApi.completeProfile({
+          registration_token: registrationToken,
+          firstName: f,
+          lastName: l,
+          birthDate: formattedDate,
+          gender: g
+        });
+
+        await login(response.access_token, response.refresh_token);
+        handleClose();
+      } catch (err) {
+        setError('Error al completar el perfil.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setStep('password');
+    }
   };
 
   const handlePasswordRegister = async (pw: string) => {
@@ -295,7 +380,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const renderContent = () => {
     switch (step) {
       case 'email':
-        return <EmailStep onSubmit={handleEmailSubmit} onAppleLogin={handleAppleLogin} isLoading={loading} error={error} initialEmail={email} />;
+        return <EmailStep onSubmit={handleEmailSubmit} onAppleLogin={handleAppleLogin} onGoogleLogin={handleGoogleLogin} isLoading={loading} error={error} initialEmail={email} />;
       case 'code':
         return (
           <CodeStep
@@ -401,7 +486,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 24,
+    paddingBottom: 12,
   },
   title: {
     fontWeight: 'bold',

@@ -6,11 +6,12 @@ interface EmailStepProps {
     initialEmail?: string;
     onSubmit: (email: string) => void;
     onAppleLogin?: () => void;
+    onGoogleLogin?: () => void;
     isLoading: boolean;
     error?: string;
 }
 
-export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, isLoading, error }: EmailStepProps) => {
+export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleLogin, isLoading, error }: EmailStepProps) => {
     const [email, setEmail] = useState(initialEmail);
     const [localError, setLocalError] = useState('');
     const theme = useTheme();
@@ -92,7 +93,7 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, isLoading
                 <Button
                     mode="outlined"
                     icon="google"
-                    onPress={() => setLocalError('Google login no disponible en esta versión')}
+                    onPress={onGoogleLogin}
                     style={styles.socialButton}
                     textColor={theme.colors.onSurface}
                 >
