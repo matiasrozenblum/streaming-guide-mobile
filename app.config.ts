@@ -140,14 +140,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             apiUrl: getApiUrl(),
             googleClientIds: {
                 web: IS_STAGING
-                    ? "590707167522-jtc5nmbc46q8g5lcr6es7gntj2b2ovg5.apps.googleusercontent.com"
-                    : "590707167522-m5kua8q7h126c04fckcskk02m3m4vnsn.apps.googleusercontent.com",
+                    ? "699504194906-v8uledkb0e19qbkav7t8b9hcae3cb6cm.apps.googleusercontent.com"
+                    : "699504194906-v8uledkb0e19qbkav7t8b9hcae3cb6cm.apps.googleusercontent.com",
                 android: IS_STAGING
-                    ? "590707167522-85ighs69s4tp0gij372ini31aheijtbd.apps.googleusercontent.com"
-                    : "590707167522-igkgg74n6k7nvppmjbnu8pcje1g5ifkn.apps.googleusercontent.com",
+                    ? "699504194906-ithd0rg3keitq0vdq3hk8id9hjvjrcvl.apps.googleusercontent.com"
+                    : "699504194906-vickf8rsufqq4jibroc1m4l14v44kh8g.apps.googleusercontent.com",
                 ios: IS_STAGING
-                    ? "590707167522-17l29k73geo1ckud90i54rmmhclj3rjt.apps.googleusercontent.com"
-                    : "590707167522-e19eo6tn3clq64em280amu6rfjeu0un5.apps.googleusercontent.com",
+                    ? "699504194906-kcgb0s01l47aa999gc9a99h7fbtv3p74.apps.googleusercontent.com"
+                    : "699504194906-02d0grusldi5d0cf9d3n0bnutd2l22b1.apps.googleusercontent.com",
             },
             eas: {
                 projectId: "c6349d70-6b66-4fe3-b121-18d7ee5670bd"
@@ -166,8 +166,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                 "@react-native-google-signin/google-signin",
                 {
                     "iosUrlScheme": IS_STAGING
-                        ? "com.googleusercontent.apps.590707167522-17l29k73geo1ckud90i54rmmhclj3rjt"
-                        : "com.googleusercontent.apps.590707167522-e19eo6tn3clq64em280amu6rfjeu0un5"
+                        ? "com.googleusercontent.apps.699504194906-kcgb0s01l47aa999gc9a99h7fbtv3p74"
+                        : "com.googleusercontent.apps.699504194906-02d0grusldi5d0cf9d3n0bnutd2l22b1"
                 }
             ],
             "@react-native-firebase/app",
