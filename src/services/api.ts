@@ -250,4 +250,11 @@ export const subscriptionsApi = {
   },
 };
 
+export const appApi = {
+  getHoliday: async (): Promise<{ isHoliday: boolean }> => {
+    const response = await api.get('/holiday');
+    return response.data;
+  }
+};
+
 export default api;

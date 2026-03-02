@@ -18,6 +18,10 @@ import { CategorySelector } from '../components/CategorySelector';
 import { Category } from '../types/channel';
 import { useLiveStatus } from '../hooks/useLiveStatus';
 import { useAuth } from '../context/AuthContext';
+import { appApi } from '../services/api';
+import { HolidayDialog } from '../components/HolidayDialog';
+import { SeasonalDialog } from '../components/SeasonalDialog';
+import { isBeforeInBuenosAires } from '../utils/dateUtils';
 
 /**
  * Merge fresh today data (from V2 endpoint) into existing week data.
@@ -65,6 +69,11 @@ export const HomeScreen = () => {
     const [selectedDate, setSelectedDate] = useState<string>(''); // YYYY-MM-DD or empty for today
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const weekLoadedRef = useRef(false);
+
+    // Holiday Dialogs
+    const isSeasonActive = isBeforeInBuenosAires('2026-01-02');
+    const [showSeasonal, setShowSeasonal] = useState(isSeasonActive);
+    const [showHoliday, setShowHoliday] = useState(false);
 
     /**
      * Stale-while-revalidate loading strategy:
@@ -117,6 +126,16 @@ export const HomeScreen = () => {
                     setCategories(data);
                 })
                 .catch(err => console.warn('[Perf] Categories fetch failed:', err));
+
+            // Holiday (independent)
+            if (!isSeasonActive) {
+                appApi.getHoliday()
+                    .then(data => {
+                        console.log(`[Perf] getHoliday: ${Date.now() - t0}ms, isHoliday: ${data.isHoliday}`);
+                        setShowHoliday(data.isHoliday);
+                    })
+                    .catch(err => console.warn('[Perf] Holiday fetch failed:', err));
+            }
 
             // V2 today schedules (fast, ~1.7s) — await to show live status quickly
             try {
@@ -203,6 +222,12 @@ export const HomeScreen = () => {
         <View style={styles.container}>
             <StatusBar style="light" />
             <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+                {showSeasonal && (
+                    <SeasonalDialog visible={showSeasonal} onClose={() => setShowSeasonal(false)} />
+                )}
+                {!isSeasonActive && showHoliday && (
+                    <HolidayDialog visible={showHoliday} onClose={() => setShowHoliday(false)} />
+                )}
                 <Header />
                 <ScheduleGrid
                     channels={filteredChannels}
