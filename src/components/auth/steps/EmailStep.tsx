@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { TextInput, Button, HelperText, Divider, Text, useTheme } from 'react-native-paper';
 
 interface EmailStepProps {
@@ -81,15 +81,17 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
             </View>
 
             <View style={styles.socialContainer}>
-                <Button
-                    mode="outlined"
-                    icon="apple"
-                    onPress={onAppleLogin}
-                    style={styles.socialButton}
-                    textColor={theme.colors.onSurface}
-                >
-                    Continuar con Apple
-                </Button>
+                {Platform.OS === 'ios' && (
+                    <Button
+                        mode="outlined"
+                        icon="apple"
+                        onPress={onAppleLogin}
+                        style={styles.socialButton}
+                        textColor={theme.colors.onSurface}
+                    >
+                        Continuar con Apple
+                    </Button>
+                )}
                 <Button
                     mode="outlined"
                     icon="google"
