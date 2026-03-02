@@ -11,6 +11,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getColorForChannel } from '../utils/colors';
 import { SvgUri } from 'react-native-svg';
+import { trackEvent } from '../lib/analytics';
 
 interface Subscription {
     id: string;
@@ -109,7 +110,10 @@ const SubscriptionTile = ({
                             <TouchableOpacity
                                 key={idx}
                                 style={styles.serviceIconContainer}
-                                onPress={() => Linking.openURL(s.url)}
+                                onPress={() => {
+                                    trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: s.url, channel_name: title });
+                                    Linking.openURL(s.url);
+                                }}
                             >
                                 {s.service === StreamingService.TWITCH ? (
                                     <MaterialCommunityIcons name="twitch" size={20} color="#9146FF" />

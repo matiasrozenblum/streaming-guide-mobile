@@ -7,6 +7,7 @@ import { Header } from '../components/Header';
 import { Streamer } from '../types/streamer';
 import { StreamerService } from '../services/streamer.service';
 import { StreamerCard } from '../components/StreamerCard';
+import { trackEvent } from '../lib/analytics';
 
 export const StreamersScreen = () => {
     const { session } = useAuth();
@@ -67,8 +68,10 @@ export const StreamersScreen = () => {
         try {
             if (newStatus) {
                 await StreamerService.subscribe(streamer.id, session.accessToken);
+                trackEvent('subscribe', { method: 'channel', channel_name: streamer.name });
             } else {
                 await StreamerService.unsubscribe(streamer.id, session.accessToken);
+                trackEvent('streamer_unsubscribe', { channel_name: streamer.name });
             }
         } catch (error) {
             console.error('Error toggling subscription:', error);

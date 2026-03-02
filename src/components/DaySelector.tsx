@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { palette, getTheme } from '../theme';
+import { trackEvent } from '../lib/analytics';
 import { spacing, borderRadius, fontSize, fontWeight } from '../theme/tokens';
 
 dayjs.locale('es');
@@ -69,7 +70,10 @@ export const DaySelector = ({ selectedDate, onSelectDate }: Props) => {
                                 styles.dayButton,
                                 isActive && styles.activeDayButton
                             ]}
-                            onPress={() => onSelectDate(day.value)}
+                            onPress={() => {
+                                onSelectDate(day.value);
+                                trackEvent('day_change', { action: 'day_change' });
+                            }}
                         >
                             <Text style={[styles.dayText, isActive && styles.activeDayText]}>
                                 {day.label}

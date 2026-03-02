@@ -17,6 +17,7 @@ import { CollapsibleBanner } from '../CollapsibleBanner';
 import { LegalFooter } from '../LegalFooter';
 import { layout, fontSize, fontWeight } from '../../theme/tokens';
 import { getTheme } from '../../theme';
+import { trackEvent } from '../../lib/analytics';
 
 const PIXELS_PER_MINUTE = layout.PIXELS_PER_MINUTE;
 const HOUR_WIDTH = 60 * PIXELS_PER_MINUTE;
@@ -261,7 +262,10 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 <View style={styles.fabWrapper} pointerEvents="box-none">
                     <TouchableOpacity
                         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-                        onPress={() => scrollToNow(true)}
+                        onPress={() => {
+                            scrollToNow(true);
+                            trackEvent('scroll_to_now', { action: 'scroll_to_now' });
+                        }}
                         activeOpacity={0.8}
                     >
                         <View style={styles.fabDot} />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Animated } from 'react-native';
 import { Banner, LinkType } from '../types/banner';
+import { trackEvent } from '../lib/analytics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { spacing } from '../theme/tokens';
 
@@ -39,6 +40,7 @@ export const BannerCarousel = ({ banners }: Props) => {
     if (!banners || banners.length === 0) return null;
 
     const handlePress = (banner: Banner) => {
+        trackEvent('banner_click', { action: banner.link_url, banner_id: banner.id || banner.title });
         if (banner.link_type === LinkType.EXTERNAL && banner.link_url) {
             Linking.openURL(banner.link_url);
         }

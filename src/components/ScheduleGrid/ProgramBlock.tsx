@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLoginModal } from '../../context/LoginModalContext';
 import { subscriptionsApi } from '../../services/api';
 import { alpha, borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+import { trackEvent } from '../../lib/analytics';
 import { getTheme } from '../../theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -47,9 +48,11 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
             if (isSubscribed) {
                 await subscriptionsApi.unsubscribe(schedule.program.id, session.accessToken);
                 setIsSubscribed(false);
+                trackEvent('program_unsubscribe', { program_name: schedule.program.name });
             } else {
                 await subscriptionsApi.subscribe(schedule.program.id, session.accessToken);
                 setIsSubscribed(true);
+                trackEvent('subscribe', { method: 'program', program_name: schedule.program.name });
             }
         } catch (error) {
             console.error('Failed to toggle subscription:', error);

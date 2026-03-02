@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import { userApi, authApi } from '../services/api';
+import { trackEvent, identifyUser, resetAnalytics } from '../lib/analytics';
 
 export interface User {
   id: number;
@@ -120,6 +121,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const user = await fetchUserProfile(accessToken);
       if (user) {
         setSession({ user, accessToken, refreshToken });
+
+        // Analytics
+        await identifyUser(user.id.toString(), {
+          email: user.email,
+          name: user.name,
+          gender: user.gender,
+          birthDate: user.birthDate,
+          role: user.role,
+        });
+        await trackEvent('login_success', { method: user.origin || 'traditional' });
       } else {
         throw new Error('Failed to fetch user profile');
       }
@@ -135,6 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       setSession(null);
+      await trackEvent('logout_success');
+      await resetAnalytics();
     } catch (error) {
       console.error('Error during logout:', error);
     }

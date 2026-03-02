@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useVideoPlayer } from '../context/VideoPlayerContext';
 import { alpha } from '../theme/tokens';
 import { getTheme } from '../theme';
+import { trackEvent } from '../lib/analytics';
 
 interface Props {
     streamer: Streamer;
@@ -21,6 +22,7 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
     const theme = getTheme('dark'); // TODO: Get from context
 
     const handleServicePress = (url: string, service: StreamingService) => {
+        trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: url, channel_name: streamer.name });
         if (service === 'youtube' || service === 'twitch' || service === 'kick') {
             openVideo(url, service);
         } else {

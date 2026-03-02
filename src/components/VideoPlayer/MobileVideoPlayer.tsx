@@ -5,6 +5,7 @@ import { WebView } from 'react-native-webview';
 import { IconButton } from 'react-native-paper';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { trackEvent } from '../../lib/analytics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MINIMIZED_WIDTH = 160;
@@ -181,7 +182,15 @@ export const MobileVideoPlayer = () => {
                         icon={isMinimized ? "window-maximize" : "window-minimize"}
                         iconColor="white"
                         size={isMinimized ? 16 : 20}
-                        onPress={isMinimized ? maximizeVideo : minimizeVideo}
+                        onPress={() => {
+                            if (isMinimized) {
+                                maximizeVideo();
+                                trackEvent('maximize_youtube', { service, video_url: videoUrl });
+                            } else {
+                                minimizeVideo();
+                                trackEvent('minimize_youtube', { service, video_url: videoUrl });
+                            }
+                        }}
                         style={styles.controlButton}
                     />
                     <IconButton
@@ -196,7 +205,10 @@ export const MobileVideoPlayer = () => {
                 {/* Maximize touch area (only when minimized) */}
                 {isMinimized && (
                     <TouchableOpacity
-                        onPress={maximizeVideo}
+                        onPress={() => {
+                            maximizeVideo();
+                            trackEvent('maximize_youtube', { service, video_url: videoUrl });
+                        }}
                         style={styles.minimizedTouchArea}
                         activeOpacity={0.9}
                     />
@@ -212,7 +224,7 @@ export const MobileVideoPlayer = () => {
                             playList={youtubePlaylistId || undefined}
                             onError={(error: string) => console.error('[VideoPlayer] YouTube error:', error)}
                             onReady={() => console.log('[VideoPlayer] YouTube player ready')}
-                            onChangeState={(state) => {
+                            onChangeState={(state: string) => {
                                 if (state === 'ended') setPlaying(false);
                             }}
                             webViewProps={{

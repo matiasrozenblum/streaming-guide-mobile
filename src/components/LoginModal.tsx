@@ -6,6 +6,7 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/api';
+import { trackEvent } from '../lib/analytics';
 
 // Steps
 import { EmailStep } from './auth/steps/EmailStep';
@@ -51,6 +52,8 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   useEffect(() => {
     if (!visible) {
       reset();
+    } else {
+      trackEvent('auth_modal_open');
     }
   }, [visible]);
 
@@ -156,6 +159,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     try {
       setLoading(true);
       setError('');
+      await trackEvent('social_login_attempt', { provider: 'apple' });
 
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -217,6 +221,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         // User canceled, do nothing
       } else {
         setError('Error al iniciar sesión con Apple. ' + (e.message || ''));
+        trackEvent('login_error', { error: e.message || 'unknown', method: 'apple' });
       }
     } finally {
       setLoading(false);
@@ -227,10 +232,10 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     try {
       setLoading(true);
       setError('');
+      await trackEvent('social_login_attempt', { provider: 'google' });
 
       GoogleSignin.configure({
         webClientId: Constants.expoConfig?.extra?.googleClientIds?.web,
-        iosClientId: Constants.expoConfig?.extra?.googleClientIds?.ios,
       });
 
       await GoogleSignin.hasPlayServices();
@@ -270,8 +275,10 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         // In progress
       } else if (e.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         setError('Google Play Services no disponible o desactualizado.');
+        trackEvent('login_error', { error: 'play_services_not_available', method: 'google' });
       } else {
         setError('Error al iniciar sesión con Google. ' + (e.message || ''));
+        trackEvent('login_error', { error: e.message || 'unknown', method: 'google' });
       }
     } finally {
       setLoading(false);
@@ -332,9 +339,11 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       });
 
       await login(response.access_token, response.refresh_token);
+      trackEvent('signup_success', { method: 'traditional' });
       handleClose();
-    } catch (err) {
+    } catch (err: any) {
       setError('Error al registrarse.');
+      trackEvent('signup_error', { error: err.message || 'unknown', method: 'traditional' });
     } finally {
       setLoading(false);
     }
@@ -347,8 +356,9 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       const response = await authApi.login(email, pw);
       await login(response.access_token, response.refresh_token);
       handleClose();
-    } catch (err) {
+    } catch (err: any) {
       setError('Credenciales inválidas');
+      trackEvent('login_error', { error: err.message || 'invalid_credentials', method: 'traditional' });
     } finally {
       setLoading(false);
     }
