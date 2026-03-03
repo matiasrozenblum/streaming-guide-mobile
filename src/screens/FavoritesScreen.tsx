@@ -33,32 +33,38 @@ interface Subscription {
 
 // Reusable Tile Component
 const SubscriptionTile = ({
+    id,
     title,
     subtitle,
     imageUrl,
     imageColor,
     isStreamer,
+    activeDeleteId,
+    onToggleDelete,
     onDelete,
     onPress,
     services
 }: {
+    id: string | number,
     title: string,
     subtitle?: React.ReactNode,
     imageUrl?: string,
     imageColor?: string,
     isStreamer?: boolean,
+    activeDeleteId: string | number | null,
+    onToggleDelete: (id: string | number) => void,
     onDelete: () => void,
     onPress?: () => void,
     services?: { service: StreamingService, url: string }[]
 }) => {
-    const [showDelete, setShowDelete] = useState(false);
+    const showDelete = activeDeleteId === id;
 
     const handlePress = () => {
         if (onPress) {
             onPress();
         } else {
             // Toggle delete button visibility on tap if no other action
-            setShowDelete(prev => !prev);
+            onToggleDelete(id);
         }
     };
 
@@ -159,6 +165,7 @@ export const FavoritesScreen = () => {
     const [streamerSubscriptions, setStreamerSubscriptions] = useState<Streamer[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [activeDeleteId, setActiveDeleteId] = useState<string | number | null>(null);
 
     const [isProgramsExpanded, setIsProgramsExpanded] = useState(true);
     const [isStreamersExpanded, setIsStreamersExpanded] = useState(true);
@@ -250,6 +257,9 @@ export const FavoritesScreen = () => {
                                 {subscriptions.map(sub => (
                                     <View key={sub.id} style={styles.gridItem}>
                                         <SubscriptionTile
+                                            id={sub.id}
+                                            activeDeleteId={activeDeleteId}
+                                            onToggleDelete={(id) => setActiveDeleteId(activeDeleteId === id ? null : id)}
                                             title={sub.program.name}
                                             subtitle={<Text style={styles.subText}>EN <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{sub.program.channel.name.toUpperCase()}</Text></Text>}
                                             imageUrl={sub.program.channel.logo_url}
@@ -283,6 +293,9 @@ export const FavoritesScreen = () => {
                                 {streamerSubscriptions.map(streamer => (
                                     <View key={streamer.id} style={styles.gridItem}>
                                         <SubscriptionTile
+                                            id={streamer.id}
+                                            activeDeleteId={activeDeleteId}
+                                            onToggleDelete={(id) => setActiveDeleteId(activeDeleteId === id ? null : id)}
                                             title={streamer.name}
                                             imageUrl={streamer.logo_url || undefined}
                                             imageColor={getColorForChannel((streamer.order ?? 1) - 1)}
