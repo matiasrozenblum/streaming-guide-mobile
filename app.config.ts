@@ -185,7 +185,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             "./plugins/withModularHeaders.js",
             withManifestMessagingFix,
             "@react-native-community/datetimepicker",
-            "expo-font"
+            "expo-font",
+            "expo-web-browser"
         ]
     };
 };

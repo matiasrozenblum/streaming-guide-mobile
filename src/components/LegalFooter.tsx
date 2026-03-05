@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { getTheme } from '../theme';
 import { fontSize } from '../theme/tokens';
 
@@ -12,8 +13,11 @@ interface LegalFooterProps {
 export const LegalFooter = ({ width }: LegalFooterProps) => {
     const theme = getTheme('dark');
 
-    const handlePress = (url: string) => {
-        Linking.openURL(url);
+    const handlePress = async (url: string) => {
+        await WebBrowser.openBrowserAsync(url, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+            controlsColor: theme.colors.primary,
+        });
     };
 
     return (
@@ -23,16 +27,12 @@ export const LegalFooter = ({ width }: LegalFooterProps) => {
                 © 2026 LA GUÍA DEL STREAMING. Todos los derechos reservados.
             </Text>
             <View style={styles.linksRow}>
-                <TouchableOpacity onPress={() => handlePress('https://laguiadelstreaming.com/terminos')}>
+                <TouchableOpacity onPress={() => handlePress('https://laguiadelstreaming.com/terminos-y-condiciones')}>
                     <Text style={[styles.link, { color: theme.colors.textSecondary }]}>Términos y Condiciones</Text>
                 </TouchableOpacity>
                 <Text style={[styles.divider, { color: theme.colors.textSecondary }]}>•</Text>
-                <TouchableOpacity onPress={() => handlePress('https://laguiadelstreaming.com/privacidad')}>
+                <TouchableOpacity onPress={() => handlePress('https://laguiadelstreaming.com/legal/politica-de-privacidad')}>
                     <Text style={[styles.link, { color: theme.colors.textSecondary }]}>Política de Privacidad</Text>
-                </TouchableOpacity>
-                <Text style={[styles.divider, { color: theme.colors.textSecondary }]}>•</Text>
-                <TouchableOpacity onPress={() => handlePress('https://laguiadelstreaming.com/cookies')}>
-                    <Text style={[styles.link, { color: theme.colors.textSecondary }]}>Configurar Cookies</Text>
                 </TouchableOpacity>
             </View>
         </View>
