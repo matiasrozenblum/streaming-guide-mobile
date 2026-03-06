@@ -142,7 +142,7 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                                 >
                                     <MaterialCommunityIcons
                                         name={iconName}
-                                        size={16}
+                                        size={18}
                                         color={serviceColor}
                                     />
                                     <Text style={[styles.serviceButtonText, { color: serviceColor }]}>
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         gap: 6,
         width: '100%',
-        minHeight: 78, // Reserve space for 2 buttons: 36px + 6px gap + 36px = 78px
+        minHeight: 86, // Reserve space for 2 slightly larger buttons
     },
     serviceButton: {
         width: '100%',
@@ -297,13 +297,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 12,
         borderRadius: 8,
         borderWidth: 1,
     },
     serviceButtonText: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
     },
 });
