@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
         overflow: 'visible',
     },
     card: {
-        borderRadius: 23, // Inner radius (24 - 1)
+        borderRadius: 12, // Inner radius (24 - 1)
         backgroundColor: '#0F172A', // theme.surface
         overflow: 'hidden',
     },
