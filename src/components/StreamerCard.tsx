@@ -209,12 +209,12 @@ const styles = StyleSheet.create({
         margin: 8, // Gap logic: 8px margin = 16px gap
     },
     gradientBorderWrapper: {
-        borderRadius: 24,
+        borderRadius: 12,
         padding: 1, // Border thickness - match single service border width
         overflow: 'visible',
     },
     singleServiceWrapper: {
-        borderRadius: 24,
+        borderRadius: 12,
         borderWidth: 1,
         overflow: 'visible',
     },
