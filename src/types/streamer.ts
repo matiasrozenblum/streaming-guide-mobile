@@ -19,6 +19,7 @@ export interface Streamer {
     description?: string;
     logo_url?: string;
     is_live: boolean;
+    active_services?: string[];
     services: StreamerService[];
     categories: Category[];
     is_subscribed?: boolean;

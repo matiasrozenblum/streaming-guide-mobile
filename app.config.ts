@@ -21,7 +21,7 @@ const getAppName = () => {
     if (IS_DEV) {
         return 'La Guía (Dev)';
     }
-    return 'La Guía del Streaming';
+    return 'La Guía';
 };
 
 const getApiUrl = () => {

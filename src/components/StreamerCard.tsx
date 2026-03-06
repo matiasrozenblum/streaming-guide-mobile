@@ -125,6 +125,9 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                             const iconName = getServiceIconName(service.service);
                             const serviceName = service.service === 'twitch' ? 'Twitch' : 'Kick';
 
+                            const isActivePlatform = streamer.is_live && streamer.active_services?.includes(service.service);
+                            const isOtherPlatformActive = streamer.is_live && !isActivePlatform && streamer.active_services && streamer.active_services.length > 0;
+
                             return (
                                 <TouchableOpacity
                                     key={idx}
@@ -132,6 +135,7 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                                         styles.serviceButton,
                                         {
                                             borderColor: alpha(serviceColor, 0.4),
+                                            opacity: isOtherPlatformActive ? 0.35 : 1,
                                         }
                                     ]}
                                     onPress={() => handleServicePress(service.url, service.service)}
