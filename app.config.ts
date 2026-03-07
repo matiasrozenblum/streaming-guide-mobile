@@ -117,7 +117,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ios: {
             supportsTablet: true,
             bundleIdentifier: getUniqueIdentifier(),
-            buildNumber: "2",
+            buildNumber: "3",
             googleServicesFile: IS_STAGING ? "./GoogleService-Info.staging.plist" : "./GoogleService-Info.plist",
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false
