@@ -140,11 +140,19 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                                     ]}
                                     onPress={() => handleServicePress(service.url, service.service)}
                                 >
-                                    <MaterialCommunityIcons
-                                        name={iconName}
-                                        size={18}
-                                        color={serviceColor}
-                                    />
+                                    {service.service === 'kick' ? (
+                                        <Image
+                                            source={{ uri: 'https://dwtkmfahaokhtpuafhsc.supabase.co/storage/v1/object/sign/streaming-services-logos/Kick%20Icon%20(Green).png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84ZWQzMzdmNy04YmEwLTQxYjAtYmJjOS05YjI2NjVhZWYwYzIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJzdHJlYW1pbmctc2VydmljZXMtbG9nb3MvS2ljayBJY29uIChHcmVlbikucG5nIiwiaWF0IjoxNzYzNTIwODQyLCJleHAiOjE3OTUwNTY4NDJ9.3cqNHCk9mYT4k6E7mUiIDIA8CWXWIKTUQK1iThtSrmo' }}
+                                            style={{ width: 18, height: 18 }}
+                                            resizeMode="contain"
+                                        />
+                                    ) : (
+                                        <MaterialCommunityIcons
+                                            name={iconName}
+                                            size={18}
+                                            color={serviceColor}
+                                        />
+                                    )}
                                     <Text style={[styles.serviceButtonText, { color: serviceColor }]}>
                                         Ver en {serviceName}
                                     </Text>
@@ -287,9 +295,10 @@ const styles = StyleSheet.create({
     },
     serviceButtonsContainer: {
         flexDirection: 'column',
+        justifyContent: 'flex-end',
         gap: 6,
         width: '100%',
-        minHeight: 86, // Reserve space for 2 slightly larger buttons
+        height: 86, // Explicit height to fix 1-button card alignment
     },
     serviceButton: {
         width: '100%',

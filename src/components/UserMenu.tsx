@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Menu, Avatar, Divider, Text, useTheme, Button } from 'react-native-paper';
+import { Menu, Avatar, Divider, Text, useTheme, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,7 +10,7 @@ interface UserMenuProps {
 
 export const UserMenu = ({ onLoginPress }: UserMenuProps) => {
     const [visible, setVisible] = useState(false);
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const theme = useTheme();
     const { session, isAuthenticated, logout } = useAuth();
 
@@ -25,14 +25,15 @@ export const UserMenu = ({ onLoginPress }: UserMenuProps) => {
     // If not authenticated, show login button
     if (!isAuthenticated || !session) {
         return (
-            <Button
+            <IconButton
+                icon="account"
                 mode="contained"
+                containerColor="rgba(255,255,255,0.1)"
+                iconColor="#9ca3af"
+                size={24}
                 onPress={onLoginPress}
-                style={styles.loginButton}
-                labelStyle={styles.loginButtonLabel}
-            >
-                Iniciar sesión
-            </Button>
+                style={styles.loginIconButton}
+            />
         );
     }
 
@@ -95,13 +96,12 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 2,
     },
-    loginButton: {
-        borderRadius: 20,
+    loginIconButton: {
         marginRight: 8,
-    },
-    loginButtonLabel: {
-        fontSize: 14,
-        fontWeight: '600',
+        margin: 0,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        width: 40,
+        height: 40,
     },
     menuContent: {
         backgroundColor: '#1f2937', // Dark mode bg
