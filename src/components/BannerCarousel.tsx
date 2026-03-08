@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md, // 16px
         borderRadius: 12, // Spec 12px
         overflow: 'hidden',
-        marginHorizontal: spacing.md, // 16px
+        marginHorizontal: spacing.sm, // 8px, matches day selector padding
         marginTop: spacing.md, // 16px
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
