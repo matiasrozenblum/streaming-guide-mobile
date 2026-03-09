@@ -24,8 +24,8 @@ export const TabNavigator = () => {
                     left: 0,
                     right: 0,
                     height: Platform.OS === 'ios' ? 92 : 76,
-                    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-                    paddingTop: 10,
+                    paddingBottom: Platform.OS === 'ios' ? 30 : 14,
+                    paddingTop: 6,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -2 },
                     shadowOpacity: 0.1,
@@ -35,9 +35,9 @@ export const TabNavigator = () => {
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
                 tabBarLabelStyle: {
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: '600',
-                    marginTop: -2,
+                    marginTop: 0,
                     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
                 },
                 tabBarBackground: undefined
@@ -48,7 +48,7 @@ export const TabNavigator = () => {
                 component={HomeScreen}
                 options={{
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="schedule" size={28} color={color} />
+                        <MaterialIcons name="schedule" size={32} color={color} />
                     ),
                 }}
             />
@@ -57,7 +57,7 @@ export const TabNavigator = () => {
                 component={StreamersScreen}
                 options={{
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="live-tv" size={28} color={color} />
+                        <MaterialIcons name="live-tv" size={32} color={color} />
                     ),
                 }}
             />
