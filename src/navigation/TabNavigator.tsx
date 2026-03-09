@@ -24,8 +24,8 @@ export const TabNavigator = () => {
                     left: 0,
                     right: 0,
                     height: Platform.OS === 'ios' ? 92 : 76,
-                    paddingBottom: Platform.OS === 'ios' ? 28 : 12, // Reduced padding tightly
-                    paddingTop: 4, // Shift icons heavily toward top border
+                    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+                    paddingTop: 0,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -2 },
                     shadowOpacity: 0.1,
@@ -34,15 +34,13 @@ export const TabNavigator = () => {
                 },
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
-                tabBarIconStyle: {
-                    flex: 1, // Let icon container adapt its own size freely
-                    width: '100%',
+                tabBarItemStyle: {
+                    paddingTop: 8,
+                    paddingBottom: 4,
                 },
                 tabBarLabelStyle: {
                     fontSize: 13,
                     fontWeight: '600',
-                    marginTop: 0, // Lessen the forced margin
-                    marginBottom: 4, // Push text slightly up from bottom
                     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
                 },
                 tabBarBackground: undefined
