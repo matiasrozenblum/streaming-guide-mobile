@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, FlatList, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { Banner, LinkType } from '../types/banner';
 import { trackEvent } from '../lib/analytics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { spacing } from '../theme/tokens';
 
 const BANNER_HEIGHT = 120;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const BANNER_WIDTH = SCREEN_WIDTH - (spacing.sm * 2); // Container has marginHorizontal
 
 interface Props {
     banners: Banner[];
@@ -13,29 +15,26 @@ interface Props {
 
 export const BannerCarousel = ({ banners }: Props) => {
     const [currentPage, setCurrentPage] = useState(0);
-    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const flatListRef = useRef<FlatList>(null);
+    const isAutoScrolling = useRef(false);
 
-    const goToNext = useCallback(() => {
-        // Fade out, switch, fade in
-        Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-        }).start(() => {
-            setCurrentPage(prev => (prev + 1) % banners.length);
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
+    const goToNextPage = useCallback(() => {
+        if (!banners || banners.length <= 1) return;
+
+        const nextIndex = (currentPage + 1) % banners.length;
+        isAutoScrolling.current = true;
+        flatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
         });
-    }, [banners.length, fadeAnim]);
+        setCurrentPage(nextIndex);
+    }, [currentPage, banners]);
 
     useEffect(() => {
         if (!banners || banners.length <= 1) return;
-        const interval = setInterval(goToNext, 5000);
+        const interval = setInterval(goToNextPage, 5000);
         return () => clearInterval(interval);
-    }, [banners, goToNext]);
+    }, [banners, goToNextPage]);
 
     if (!banners || banners.length === 0) return null;
 
@@ -46,33 +45,61 @@ export const BannerCarousel = ({ banners }: Props) => {
         }
     };
 
-    const banner = banners[currentPage];
-    const imageSrc = banner.image_url_mobile || banner.image_url;
+    const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (isAutoScrolling.current) {
+            isAutoScrolling.current = false;
+            return;
+        }
+        const newIndex = Math.round(event.nativeEvent.contentOffset.x / BANNER_WIDTH);
+        if (newIndex !== currentPage && newIndex >= 0 && newIndex < banners.length) {
+            setCurrentPage(newIndex);
+        }
+    };
+
+    const renderItem = ({ item }: { item: Banner }) => {
+        const imageSrc = item.image_url_mobile || item.image_url;
+
+        return (
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handlePress(item)}
+                style={[styles.page, { width: BANNER_WIDTH }]}
+            >
+                <Image
+                    source={{ uri: imageSrc }}
+                    style={styles.image}
+                    resizeMode="cover"
+                />
+                {item.description && (
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.8)']}
+                        style={styles.gradient}
+                    >
+                        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+                        <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
+                    </LinearGradient>
+                )}
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <View style={[styles.container, { height: BANNER_HEIGHT }]}>
-            <Animated.View style={[styles.page, { opacity: fadeAnim }]}>
-                <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => handlePress(banner)}
-                    style={styles.page}
-                >
-                    <Image
-                        source={{ uri: imageSrc }}
-                        style={styles.image}
-                        resizeMode="cover"
-                    />
-                    {banner.description && (
-                        <LinearGradient
-                            colors={['transparent', 'rgba(0,0,0,0.8)']}
-                            style={styles.gradient}
-                        >
-                            <Text style={styles.title} numberOfLines={1}>{banner.title}</Text>
-                            <Text style={styles.description} numberOfLines={2}>{banner.description}</Text>
-                        </LinearGradient>
-                    )}
-                </TouchableOpacity>
-            </Animated.View>
+            <FlatList
+                ref={flatListRef}
+                data={banners}
+                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                renderItem={renderItem}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={handleMomentumScrollEnd}
+                getItemLayout={(_, index) => ({
+                    length: BANNER_WIDTH,
+                    offset: BANNER_WIDTH * index,
+                    index,
+                })}
+            />
 
             {banners.length > 1 && (
                 <View style={styles.dotsContainer}>
@@ -93,18 +120,18 @@ export const BannerCarousel = ({ banners }: Props) => {
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: spacing.md, // 16px
-        borderRadius: 12, // Spec 12px
+        marginBottom: spacing.md,
+        borderRadius: 12,
         overflow: 'hidden',
-        marginHorizontal: spacing.sm, // 8px, matches day selector padding
-        marginTop: spacing.md, // 16px
+        marginHorizontal: spacing.sm,
+        marginTop: spacing.md,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
-        backgroundColor: '#1f2937', // Placeholder bg
-        height: BANNER_HEIGHT, // redundant but safe
+        backgroundColor: '#1f2937',
+        height: BANNER_HEIGHT,
     },
     page: {
-        flex: 1,
+        height: BANNER_HEIGHT,
         position: 'relative',
     },
     image: {
@@ -116,21 +143,15 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        height: '100%', // Full height gradient? Spec says "Gradient Overlay", usually full or bottom half. 
-        // Code used 100% with transparent -> black. This matches "to top, rgba(0,0,0,0.8), transparent" logic but inverted direction
-        // Previous was ['transparent', 'rgba(0,0,0,0.8)'] which is Top->Bottom.
-        // Spec: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)" which means Bottom is black, Top is transparent.
-        // So colors=['transparent', 'rgba(0,0,0,0.8)'] (default usage) puts first color at top?
-        // expo-linear-gradient default is top to bottom. Transparency at top, Black at bottom. Correct.
+        height: '100%',
         justifyContent: 'flex-end',
-        padding: spacing.md, // 16px? Spec says padding 20px for content?
-        // Spec prompt not explicit on padding inside banner, will stick to 12 or 16.
+        padding: spacing.md,
         paddingHorizontal: spacing.md,
         paddingBottom: spacing.md,
     },
     title: {
         color: 'white',
-        fontSize: 18, // Spec: 18px Bold for mobile
+        fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 4,
         textShadowColor: 'rgba(0, 0, 0, 0.8)',
@@ -139,7 +160,7 @@ const styles = StyleSheet.create({
     },
     description: {
         color: 'rgba(255,255,255,0.9)',
-        fontSize: 14, // Spec: 14px Regular
+        fontSize: 14,
         fontWeight: '400',
         textShadowColor: 'rgba(0, 0, 0, 0.8)',
         textShadowOffset: { width: 1, height: 1 },
@@ -147,12 +168,12 @@ const styles = StyleSheet.create({
     },
     dotsContainer: {
         position: 'absolute',
-        bottom: spacing.sm, // 8px
+        bottom: spacing.sm,
         left: 0,
         right: 0,
         flexDirection: 'row',
         justifyContent: 'center',
-        gap: 6, // Spec: 6px gap
+        gap: 6,
     },
     dot: {
         width: 6,
@@ -166,3 +187,4 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.4)',
     },
 });
+
