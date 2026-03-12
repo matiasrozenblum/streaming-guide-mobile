@@ -82,7 +82,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
 
   const getTitle = () => {
     if (phase === 'email') return '¡Bienvenid@ a La Guía!';
-    if (isUserExisting && step === 'existing-user') return 'Iniciar Sesión';
+    if (isUserExisting && step === 'existing-user') return 'Iniciar sesión';
     if (!isUserExisting && step === 'email') return 'Acceder / Registrarse'; // Should not happen since phase moves to flow
     if (step === 'code') return 'Verificar correo'; // or 'Recuperar contraseña' if forgot
     if (step === 'profile') return 'Completa tu perfil';

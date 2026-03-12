@@ -23,7 +23,7 @@ export const TabNavigator = () => {
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    height: Platform.OS === 'ios' ? 92 : 76,
+                    height: Platform.OS === 'ios' ? 76 : 76,
                     paddingBottom: Platform.OS === 'ios' ? 24 : 8,
                     paddingTop: 0,
                     shadowColor: '#000',
@@ -35,13 +35,18 @@ export const TabNavigator = () => {
                 tabBarActiveTintColor: theme.colors.primary,
                 tabBarInactiveTintColor: theme.colors.textSecondary,
                 tabBarItemStyle: {
-                    paddingTop: 8,
-                    paddingBottom: 4,
+                    paddingTop: 0,
+                    paddingBottom: 12,
+                },
+                tabBarIconStyle: {
+                    width: 34,
+                    height: 34,
                 },
                 tabBarLabelStyle: {
                     fontSize: 13,
                     fontWeight: '600',
                     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+                    marginTop: -4,
                 },
                 tabBarBackground: undefined
             }}
