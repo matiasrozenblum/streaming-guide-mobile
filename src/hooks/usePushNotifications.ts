@@ -47,7 +47,7 @@ export function usePushNotifications() {
 
             try {
                 const token = await messaging().getToken();
-                console.log('[Push] FCM token obtained:', token?.substring(0, 20) + '...');
+                console.log('[Push] FCM token obtained successfully');
                 fcmTokenRef.current = token;
             } catch (error: any) {
                 console.error('[Push] Failed to get FCM token:', error);
@@ -56,7 +56,7 @@ export function usePushNotifications() {
 
             // Listen for token refresh
             unsubscribeTokenRefresh = messaging().onTokenRefresh((newToken) => {
-                console.log('[Push] FCM Token refreshed:', newToken?.substring(0, 20) + '...');
+                console.log('[Push] FCM Token refreshed successfully');
                 fcmTokenRef.current = newToken;
                 // Re-register if already authenticated
                 registeredRef.current = false;
@@ -105,11 +105,11 @@ export function usePushNotifications() {
 
             console.log('[Push] Registering device with backend...');
             try {
-                const deviceResult = await DeviceService.registerDevice(session.accessToken);
-                console.log('[Push] Device registered:', JSON.stringify(deviceResult));
+                await DeviceService.registerDevice(session.accessToken);
+                console.log('[Push] Device registered successfully');
 
-                const fcmResult = await DeviceService.registerFCM(fcmToken);
-                console.log('[Push] FCM registered:', fcmResult);
+                await DeviceService.registerFCM(fcmToken);
+                console.log('[Push] FCM registered successfully');
 
                 registeredRef.current = true;
                 console.log('[Push] Registration complete!');
