@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import messaging from '@react-native-firebase/messaging';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { DeviceService } from '../services/device.service';
 import * as Device from 'expo-device';
 import { useAuth } from '../context/AuthContext';
+import { navigate, navigationRef } from '../navigation/NavigationService';
+import { videoPlayerRef } from '../context/VideoPlayerContext';
 
 export function usePushNotifications() {
     const { session, isAuthenticated } = useAuth();
@@ -67,6 +69,47 @@ export function usePushNotifications() {
                 console.log('[Push] Foreground notification received:', remoteMessage.notification?.title);
                 // We do NOT show an Alert.alert here because the user wants to avoid the "double" notification effect.
                 // The system notification (if configured to show in foreground) or just the badge/sound is enough.
+            });
+
+            // Handle user tapping the notification when the app is running in the background
+            messaging().onNotificationOpenedApp(remoteMessage => {
+                console.log('[Push] Notification caused app to open from background:', remoteMessage);
+                const url = remoteMessage?.data?.url;
+                if (url && typeof url === 'string') {
+                    const domain = url.toLowerCase();
+                    let service: any = 'youtube';
+                    if (domain.includes('twitch.tv')) service = 'twitch';
+                    if (domain.includes('kick.com')) service = 'kick';
+
+                    navigate('MainTabs', { screen: 'Streamers' });
+                    // Provide a tiny delay for navigation state to settle
+                    setTimeout(() => {
+                        videoPlayerRef.current?.openVideo(url, service);
+                    }, 300);
+                }
+            });
+
+            // Handle user tapping the notification to fully launch the app from a quit state
+            messaging().getInitialNotification().then(remoteMessage => {
+                if (remoteMessage) {
+                    console.log('[Push] Notification caused app to open from quit state:', remoteMessage);
+                    const url = remoteMessage?.data?.url;
+                    if (url && typeof url === 'string') {
+                        const domain = url.toLowerCase();
+                        let service: any = 'youtube';
+                        if (domain.includes('twitch.tv')) service = 'twitch';
+                        if (domain.includes('kick.com')) service = 'kick';
+
+                        // Navigate to Streamers screen slightly delayed to let the app fully mount
+                        setTimeout(() => {
+                            navigate('MainTabs', { screen: 'Streamers' });
+                            // Open the inner video player right after
+                            setTimeout(() => {
+                                videoPlayerRef.current?.openVideo(url, service);
+                            }, 500);
+                        }, 500);
+                    }
+                }
             });
         };
 

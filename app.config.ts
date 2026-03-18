@@ -120,7 +120,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             buildNumber: "3",
             googleServicesFile: IS_STAGING ? "./GoogleService-Info.staging.plist" : "./GoogleService-Info.plist",
             infoPlist: {
-                ITSAppUsesNonExemptEncryption: false
+                ITSAppUsesNonExemptEncryption: false,
+                CFBundleDisplayName: getAppName(),
+                CFBundleName: "LaGuia"
             }
         },
         android: {

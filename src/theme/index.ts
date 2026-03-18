@@ -81,8 +81,22 @@ export const getTheme = (mode: 'light' | 'dark') => {
 
 export type Theme = ReturnType<typeof getTheme>;
 
-const fontConfig = {
-    fontFamily: 'Inter_400Regular',
+const baseFonts = configureFonts({ config: { fontFamily: 'Inter_400Regular' } });
+
+const customFonts = {
+    ...baseFonts,
+    displayLarge: { ...baseFonts.displayLarge, fontFamily: 'Inter_700Bold' },
+    displayMedium: { ...baseFonts.displayMedium, fontFamily: 'Inter_700Bold' },
+    displaySmall: { ...baseFonts.displaySmall, fontFamily: 'Inter_700Bold' },
+    headlineLarge: { ...baseFonts.headlineLarge, fontFamily: 'Inter_700Bold' },
+    headlineMedium: { ...baseFonts.headlineMedium, fontFamily: 'Inter_600SemiBold' },
+    headlineSmall: { ...baseFonts.headlineSmall, fontFamily: 'Inter_600SemiBold' },
+    titleLarge: { ...baseFonts.titleLarge, fontFamily: 'Inter_700Bold' },
+    titleMedium: { ...baseFonts.titleMedium, fontFamily: 'Inter_600SemiBold' },
+    titleSmall: { ...baseFonts.titleSmall, fontFamily: 'Inter_500Medium' },
+    labelLarge: { ...baseFonts.labelLarge, fontFamily: 'Inter_500Medium' },
+    labelMedium: { ...baseFonts.labelMedium, fontFamily: 'Inter_500Medium' },
+    labelSmall: { ...baseFonts.labelSmall, fontFamily: 'Inter_500Medium' },
 };
 
 /**
@@ -91,7 +105,7 @@ const fontConfig = {
  */
 export const paperDarkTheme = {
     ...MD3DarkTheme,
-    fonts: configureFonts({ config: fontConfig }),
+    fonts: customFonts,
     colors: {
         ...MD3DarkTheme.colors,
         // Primary
@@ -149,7 +163,7 @@ export const paperDarkTheme = {
 
 export const paperLightTheme = {
     ...MD3LightTheme,
-    fonts: configureFonts({ config: fontConfig }),
+    fonts: customFonts,
     colors: {
         ...MD3LightTheme.colors,
         primary: palette.brand.primaryLight,               // #2563EB

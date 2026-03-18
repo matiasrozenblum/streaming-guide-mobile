@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { TextInput, Button, HelperText, Divider, Text, useTheme } from 'react-native-paper';
+import { View, StyleSheet, Platform, TextInput as NativeTextInput } from 'react-native';
+import { Button, HelperText, Divider, Text, useTheme } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface EmailStepProps {
     initialEmail?: string;
@@ -14,6 +15,7 @@ interface EmailStepProps {
 export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleLogin, isLoading, error }: EmailStepProps) => {
     const [email, setEmail] = useState(initialEmail);
     const [localError, setLocalError] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
     const theme = useTheme();
 
     const handleSubmit = () => {
@@ -32,29 +34,40 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
 
     return (
         <View style={styles.container}>
-            {/* Title is handled by the parent Modal usually, but we can add it here if structure changes. 
-          The web version has the title in DialogTitle. Mobile LoginModal has it inside renderEmailStep.
-          We'll assume the parent handles the main title or we add it here? 
-          For now, let's keep it pure to the input form to match web "EmailStep" which doesn't have the title.
-      */}
-
-            <TextInput
-                label="Correo electrónico"
-                placeholder="ejemplo@correo.com"
-                value={email}
-                onChangeText={(text) => {
-                    setEmail(text);
-                    if (localError) setLocalError('');
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                textContentType="emailAddress"
-                mode="outlined"
-                disabled={isLoading}
-                left={<TextInput.Icon icon="email-outline" />}
-                style={styles.input}
-            />
+            <View style={[
+                styles.inputContainer,
+                {
+                    borderColor: isFocused ? theme.colors.primary : theme.colors.outline,
+                    borderWidth: isFocused ? 2 : 1,
+                },
+            ]}>
+                <MaterialCommunityIcons
+                    name="email-outline"
+                    size={24}
+                    color={theme.colors.onSurfaceVariant}
+                    style={styles.inputIcon}
+                />
+                <NativeTextInput
+                    placeholder="Correo electrónico"
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                    value={email}
+                    onChangeText={(text) => {
+                        setEmail(text);
+                        if (localError) setLocalError('');
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    editable={!isLoading}
+                    style={[styles.nativeInput, { color: theme.colors.onSurface }]}
+                    returnKeyType="done"
+                    multiline={false}
+                    numberOfLines={1}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                />
+            </View>
 
             {(localError || error) ? (
                 <HelperText type="error" visible>
@@ -89,7 +102,7 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
                         style={styles.socialButton}
                         textColor={theme.colors.onSurface}
                     >
-                        Continuar con Apple
+                        Conectate con Apple
                     </Button>
                 )}
                 <Button
@@ -101,7 +114,6 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
                 >
                     Conectate con Google
                 </Button>
-                {/* Facebook button commented out in web, so we leave it out here too */}
             </View>
         </View >
     );
@@ -111,12 +123,24 @@ const styles = StyleSheet.create({
     container: {
         gap: 16,
     },
-    input: {
-        backgroundColor: 'transparent',
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 4,
+        paddingHorizontal: 12,
+        height: 56,
+    },
+    inputIcon: {
+        marginRight: 10,
+    },
+    nativeInput: {
+        flex: 1,
+        fontSize: 16,
+        height: '100%',
     },
     button: {
         marginTop: 8,
-        borderRadius: 6, // Matches web 1.5 (approx 12px or 6-8px depending on scale)
+        borderRadius: 6,
     },
     buttonContent: {
         paddingVertical: 6,
@@ -124,7 +148,7 @@ const styles = StyleSheet.create({
     dividerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: 8, // reduced from 16 to match web compact look
+        marginVertical: 8,
     },
     divider: {
         flex: 1,
@@ -138,6 +162,6 @@ const styles = StyleSheet.create({
     },
     socialButton: {
         borderRadius: 6,
-        borderColor: 'rgba(255,255,255,0.2)', // approximate matched border
+        borderColor: 'rgba(241,245,249,1)',
     },
 });

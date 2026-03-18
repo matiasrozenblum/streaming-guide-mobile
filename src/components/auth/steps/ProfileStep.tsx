@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, Keyboard } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, Keyboard, Modal } from 'react-native';
 import { TextInput, Button, HelperText, Menu, Text, useTheme } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
@@ -63,6 +63,9 @@ export const ProfileStep = ({
             } else {
                 setBirthDateError('');
             }
+            if (Platform.OS === 'ios') {
+                setShowDatePicker(false);
+            }
         }
     };
 
@@ -78,7 +81,7 @@ export const ProfileStep = ({
 
     const getFormattedDate = () => {
         if (!birthDate) return '';
-        return dayjs(birthDate).format('DD/MM/YYYY');
+        return dayjs(birthDate).format('DD/MM/YY');
     };
 
     const handleSubmit = () => {
@@ -165,11 +168,34 @@ export const ProfileStep = ({
                 </HelperText>
             ) : null}
 
-            {showDatePicker && (
+            {showDatePicker && Platform.OS === 'ios' && (
+                <Modal transparent visible animationType="fade">
+                    <TouchableOpacity
+                        style={styles.iosModalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setShowDatePicker(false)}
+                    >
+                        <TouchableOpacity style={[styles.iosInlineContainer, { backgroundColor: theme.colors.surface }]} activeOpacity={1}>
+                            <DateTimePicker
+                                value={birthDate || new Date(2000, 0, 1)}
+                                mode="date"
+                                display="inline"
+                                onChange={handleDateChange}
+                                maximumDate={new Date()}
+                                minimumDate={new Date(1920, 0, 1)}
+                                textColor={theme.colors.onSurface}
+                                accentColor={theme.colors.primary}
+                            />
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
+            )}
+
+            {showDatePicker && Platform.OS === 'android' && (
                 <DateTimePicker
                     value={birthDate || new Date(2000, 0, 1)}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display="default"
                     onChange={handleDateChange}
                     maximumDate={new Date()}
                     minimumDate={new Date(1920, 0, 1)}
@@ -241,5 +267,17 @@ const styles = StyleSheet.create({
     },
     flexButton: {
         flex: 1,
+    },
+    iosModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iosInlineContainer: {
+        borderRadius: 14,
+        padding: 16,
+        width: '90%',
+        maxWidth: 400,
     },
 });

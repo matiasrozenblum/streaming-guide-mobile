@@ -2,7 +2,8 @@ import React from 'react';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './src/navigation/NavigationService';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { initAnalytics, trackScreen, trackEvent } from './src/lib/analytics';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
@@ -14,7 +15,6 @@ import { paperDarkTheme } from './src/theme';
 
 function AppContent() {
   usePushNotifications();
-  const navigationRef = useNavigationContainerRef();
   const routeNameRef = React.useRef<string | undefined>(undefined);
 
   return (

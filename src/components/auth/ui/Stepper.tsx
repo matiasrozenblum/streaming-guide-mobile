@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { useTheme, Text } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // Step keys matching the web logic
@@ -76,6 +76,7 @@ export const Stepper = ({ currentStep, steps }: StepperProps) => {
                             </View>
                         </View>
                         <Text
+                            variant="labelMedium"
                             style={[
                                 styles.label,
                                 {
@@ -134,8 +135,6 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     label: {
-        fontSize: 12,
-        fontWeight: '600',
         textAlign: 'center',
     },
 });

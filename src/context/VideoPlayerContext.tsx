@@ -13,6 +13,8 @@ interface VideoPlayerContextType {
     maximizeVideo: () => void;
 }
 
+export const videoPlayerRef = React.createRef<VideoPlayerContextType>();
+
 const VideoPlayerContext = createContext<VideoPlayerContextType | undefined>(undefined);
 
 export const VideoPlayerProvider = ({ children }: { children: ReactNode }) => {
@@ -41,6 +43,18 @@ export const VideoPlayerProvider = ({ children }: { children: ReactNode }) => {
     const maximizeVideo = () => {
         setIsMinimized(false);
     };
+
+    // Expose context to global ref so non-React components (like push listeners) can use it
+    React.useImperativeHandle(videoPlayerRef, () => ({
+        isVisible,
+        isMinimized,
+        videoUrl,
+        service,
+        openVideo,
+        closeVideo,
+        minimizeVideo,
+        maximizeVideo,
+    }), [isVisible, isMinimized, videoUrl, service]);
 
     return (
         <VideoPlayerContext.Provider

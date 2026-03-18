@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'android' ? 10 : 24,
     paddingBottom: 12,
   },
   title: {
