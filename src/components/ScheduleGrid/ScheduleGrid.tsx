@@ -41,6 +41,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     // --- Refs ---
     const horizontalScrollRef = useAnimatedRef<Animated.ScrollView>();
     const mainVerticalRef = useAnimatedRef<Animated.ScrollView>();
+    const headerScrollRef = useAnimatedRef<Animated.ScrollView>();
 
     // --- Shared Values ---
     const scrollX = useSharedValue(0);
@@ -52,6 +53,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     const onHorizontalScroll = useAnimatedScrollHandler({
         onScroll: (event) => {
             scrollX.value = event.contentOffset.x;
+            scrollTo(headerScrollRef, event.contentOffset.x, 0, false);
         },
     });
 
@@ -59,13 +61,6 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         onScroll: (event) => {
             scrollY.value = event.contentOffset.y;
         },
-    });
-
-    // --- Header Animation (Sync with horizontal scroll) ---
-    const headerStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ translateX: -scrollX.value }]
-        };
     });
 
     // --- Now line offset ---
@@ -151,6 +146,9 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 ref={mainVerticalRef}
                 onScroll={onVerticalScroll}
                 scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
+                overScrollMode="never"
+                bounces={false}
                 stickyHeaderIndices={[0]} // Index 0 is the Header Container (Banner + Nav + TimeHeader)
                 contentContainerStyle={{ paddingBottom: 0 }} // Footer has its own height
                 refreshControl={
@@ -193,15 +191,19 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
                         {/* Time Header (Synced with Horizontal Scroll) */}
                         <View style={styles.timeHeaderContainer}>
-                            <Animated.View style={[
-                                { width: TOTAL_WIDTH, height: TIME_HEADER_HEIGHT },
-                                headerStyle
-                            ]}>
+                            <Animated.ScrollView
+                                ref={headerScrollRef}
+                                horizontal
+                                scrollEnabled={false}
+                                showsHorizontalScrollIndicator={false}
+                                pointerEvents="none"
+                                contentContainerStyle={{ width: TOTAL_WIDTH, height: TIME_HEADER_HEIGHT }}
+                            >
                                 <TimeHeaderMarkers
                                     hourWidth={HOUR_WIDTH}
                                     totalWidth={TOTAL_WIDTH}
                                 />
-                            </Animated.View>
+                            </Animated.ScrollView>
                         </View>
                     </View>
                 </View>
