@@ -122,7 +122,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
                 CFBundleDisplayName: getAppName(),
-                CFBundleName: "LaGuia"
+                CFBundleName: "La Guía"
             }
         },
         android: {

@@ -177,10 +177,10 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                     style={[
                         styles.gradientBorderWrapper,
                         {
-                            shadowColor: twitchColor,
-                            shadowOffset: { width: 0, height: 0 },
-                            shadowOpacity: streamer.is_live ? 0.4 : 0,
-                            shadowRadius: streamer.is_live ? 10 : 0,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: streamer.is_live ? 0.3 : 0,
+                            shadowRadius: streamer.is_live ? 6 : 0,
                             elevation: streamer.is_live ? 5 : 1,
                         }
                     ]}
@@ -197,10 +197,10 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                     styles.singleServiceWrapper,
                     {
                         borderColor: singleServiceColor ? alpha(singleServiceColor, 0.4) : theme.colors.border,
-                        shadowColor: singleServiceColor || '#000',
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: streamer.is_live && singleServiceColor ? 0.4 : 0,
-                        shadowRadius: streamer.is_live ? 10 : 0,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: streamer.is_live ? 0.3 : 0,
+                        shadowRadius: streamer.is_live ? 6 : 0,
                         elevation: streamer.is_live ? 5 : 1,
                     }
                 ]}>
