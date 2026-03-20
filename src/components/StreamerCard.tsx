@@ -164,51 +164,69 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
         </View>
     );
 
-    // Render with or without gradient border wrapper
-    if (isDual) {
-        // Dual service: LinearGradient border wrapper (left to right: purple -> green)
-        // Apply alpha to match single-service border opacity
+    const showGlow = hasTwitch || hasKick || streamer.is_live;
+    const glowColorLeft = hasTwitch ? twitchColor : kickColor;
+    const glowColorRight = hasKick ? kickColor : twitchColor;
+
+    // Renders custom dual/single color gradients in place of native OS shadows for 100% uniformity
+    const CrossPlatformGlow = () => {
+        if (!showGlow) return null;
+
+        // Simulates a soft Gaussian blur for a true "neon" glow using concentric rings.
+        const GLOW_LAYERS = 6;
+
         return (
-            <View style={styles.cardContainer}>
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                {Array.from({ length: GLOW_LAYERS }).map((_, i) => {
+                    const offset = i * 2.5 + 1; // Spreads out wide (1, 3.5, 6, 8.5, 11, 13.5)
+                    // Very low base opacity so the accumulated layers form a sheer fuzzy halo
+                    const opacity = 0.12 * Math.pow(0.6, i);
+                    return (
+                        <LinearGradient
+                            key={i}
+                            colors={[alpha(glowColorLeft, opacity), alpha(glowColorRight, opacity)]}
+                            start={isDual ? { x: 0, y: 0.5 } : undefined}
+                            end={isDual ? { x: 1, y: 0.5 } : undefined}
+                            style={{
+                                position: 'absolute',
+                                top: -offset,
+                                bottom: -offset,
+                                left: -offset,
+                                right: -offset,
+                                borderRadius: 11 + offset,
+                            }}
+                        />
+                    );
+                })}
+            </View>
+        );
+    };
+
+    return (
+        <View style={[styles.cardContainer, {
+            shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 5, elevation: 8
+        }]}>
+            <CrossPlatformGlow />
+
+            {isDual ? (
                 <LinearGradient
-                    colors={[alpha(twitchColor, 0.4), alpha(kickColor, 0.4)]}
+                    colors={[alpha(glowColorLeft, 0.8), alpha(glowColorRight, 0.8)]}
                     start={{ x: 0, y: 0.5 }}
                     end={{ x: 1, y: 0.5 }}
-                    style={[
-                        styles.gradientBorderWrapper,
-                        {
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: streamer.is_live ? 0.3 : 0,
-                            shadowRadius: streamer.is_live ? 6 : 0,
-                            elevation: streamer.is_live ? 5 : 1,
-                        }
-                    ]}
+                    style={styles.gradientBorderWrapper}
                 >
                     {cardContent}
                 </LinearGradient>
-            </View>
-        );
-    } else {
-        // Single service: Regular border with glow
-        return (
-            <View style={styles.cardContainer}>
+            ) : (
                 <View style={[
                     styles.singleServiceWrapper,
-                    {
-                        borderColor: singleServiceColor ? alpha(singleServiceColor, 0.4) : theme.colors.border,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: streamer.is_live ? 0.3 : 0,
-                        shadowRadius: streamer.is_live ? 6 : 0,
-                        elevation: streamer.is_live ? 5 : 1,
-                    }
+                    { borderColor: singleServiceColor ? alpha(singleServiceColor, 0.8) : theme.colors.border }
                 ]}>
                     {cardContent}
                 </View>
-            </View>
-        );
-    }
+            )}
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
