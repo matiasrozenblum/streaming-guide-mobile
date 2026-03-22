@@ -278,12 +278,6 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: borderRadius.sm, // 2px
         overflow: 'hidden',
-        // Shadow props
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
     },
     content: {
         padding: spacing.sm, // 8px
