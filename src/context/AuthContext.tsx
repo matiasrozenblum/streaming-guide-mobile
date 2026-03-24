@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import { userApi, authApi } from '../services/api';
-import { trackEvent, identifyUser, resetAnalytics } from '../lib/analytics';
+import { trackEvent, identifyUser, resetAnalytics, setAnalyticsAdminMode } from '../lib/analytics';
 
 export interface User {
   id: number;
@@ -95,6 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const user = await fetchUserProfile(accessToken);
           if (user) {
             setSession({ user, accessToken, refreshToken });
+            // Disable analytics for admin users to avoid polluting metrics
+            if (user.role === 'admin') {
+              await setAnalyticsAdminMode(true);
+            }
           } else {
             // Invalid token, clear storage
             await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
@@ -122,6 +126,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         setSession({ user, accessToken, refreshToken });
 
+        // Disable analytics for admin users to avoid polluting metrics
+        if (user.role === 'admin') {
+          await setAnalyticsAdminMode(true);
+          return;
+        }
+
         // Analytics
         await identifyUser(user.id.toString(), {
           email: user.email,
@@ -146,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
       setSession(null);
+      await setAnalyticsAdminMode(false);
       await trackEvent('logout_success');
       await resetAnalytics();
     } catch (error) {

@@ -5,6 +5,32 @@ import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 
 let posthog: PostHog | null = null;
+let _isAdminUser = false;
+
+/**
+ * Enable/disable analytics tracking for admin users.
+ * When enabled, all tracking functions become no-ops to avoid polluting metrics.
+ */
+export const setAnalyticsAdminMode = async (isAdmin: boolean) => {
+    _isAdminUser = isAdmin;
+    if (isAdmin) {
+        // Disable PostHog capturing
+        if (posthog) {
+            posthog.optOut();
+        }
+        // Disable Firebase Analytics collection
+        await analytics().setAnalyticsCollectionEnabled(false);
+        console.log('🔇 Analytics disabled for admin user');
+    } else {
+        // Re-enable PostHog capturing
+        if (posthog) {
+            posthog.optIn();
+        }
+        // Re-enable Firebase Analytics collection
+        await analytics().setAnalyticsCollectionEnabled(true);
+        console.log('🔊 Analytics re-enabled');
+    }
+};
 
 export const initAnalytics = async () => {
     try {
@@ -36,6 +62,7 @@ export const initAnalytics = async () => {
  * Identify a user with both PostHog and Firebase Analytics.
  */
 export const identifyUser = async (userId: string, properties?: Record<string, any>) => {
+    if (_isAdminUser) return;
     try {
         if (posthog) {
             posthog.identify(userId, properties);
@@ -58,6 +85,7 @@ export const identifyUser = async (userId: string, properties?: Record<string, a
  * Track a page/screen view.
  */
 export const trackScreen = async (screenName: string, screenClass?: string) => {
+    if (_isAdminUser) return;
     try {
         if (posthog) {
             posthog.screen(screenName);
@@ -75,6 +103,7 @@ export const trackScreen = async (screenName: string, screenClass?: string) => {
  * Track a custom event to both PostHog and Firebase Analytics.
  */
 export const trackEvent = async (eventName: string, properties?: Record<string, any>) => {
+    if (_isAdminUser) return;
     try {
         if (posthog) {
             posthog.capture(eventName, properties);
