@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLoginModal } from '../context/LoginModalContext';
 import { View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -11,6 +12,7 @@ import { trackEvent } from '../lib/analytics';
 
 export const StreamersScreen = () => {
     const { session } = useAuth();
+    const { show: showLogin } = useLoginModal();
     const [streamers, setStreamers] = useState<Streamer[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -52,7 +54,7 @@ export const StreamersScreen = () => {
 
     const handleToggleSubscription = async (streamer: Streamer) => {
         if (!session?.accessToken) {
-            // TODO: Navigate to login
+            showLogin();
             return;
         }
 
@@ -90,7 +92,6 @@ export const StreamersScreen = () => {
             index={index}
             onToggleSubscription={() => handleToggleSubscription(item)}
             isSubscriptionLoading={!!subscriptionLoading[item.id]}
-            isAuthenticated={!!session}
         />
     );
 

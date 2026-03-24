@@ -14,10 +14,9 @@ interface Props {
     index: number;
     onToggleSubscription?: () => void;
     isSubscriptionLoading?: boolean;
-    isAuthenticated?: boolean;
 }
 
-export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscriptionLoading, isAuthenticated }: Props) => {
+export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscriptionLoading }: Props) => {
     const { openVideo } = useVideoPlayer();
     const theme = getTheme('dark'); // TODO: Get from context
 
@@ -75,7 +74,7 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
                 </View>
 
                 {/* Subscription Button - Top Left */}
-                {isAuthenticated && onToggleSubscription && (
+                {onToggleSubscription && (
                     <TouchableOpacity
                         style={styles.subscriptionButton}
                         onPress={onToggleSubscription}
