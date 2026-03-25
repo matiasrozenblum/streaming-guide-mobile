@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
     View, StyleSheet, Dimensions, ActivityIndicator,
-    TouchableOpacity, Text, RefreshControl, Platform, ScrollView
+    TouchableOpacity, Text, RefreshControl, ScrollView,
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedScrollHandler,
     useAnimatedRef, scrollTo, runOnJS, runOnUI,
-    useAnimatedReaction, useAnimatedStyle, withTiming,
+    useAnimatedReaction,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import { ChannelWithSchedules } from '../../types/channel';
 import { ProgramRow } from './ProgramRow';
 import { ChannelLogo } from './ChannelLogo';
 import { TimeHeaderMarkers } from './TimeHeader';
-import { CollapsibleBanner } from '../CollapsibleBanner';
 import { LegalFooter } from '../LegalFooter';
 import { layout, fontSize, fontWeight } from '../../theme/tokens';
 import { getTheme } from '../../theme';
@@ -33,21 +33,23 @@ interface ScheduleGridProps {
     stickyNavContent?: React.ReactNode;
     onRefresh?: () => void;
     refreshing?: boolean;
+    selectedCategoryId?: number | null;
 }
 
-export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing }: ScheduleGridProps) => {
+export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId }: ScheduleGridProps) => {
     const theme = getTheme('dark');
+    const insets = useSafeAreaInsets();
 
     // --- Refs ---
     const horizontalScrollRef = useAnimatedRef<Animated.ScrollView>();
-    const mainVerticalRef = useAnimatedRef<Animated.ScrollView>();
+    const mainVerticalRef = useRef<ScrollView>(null);
     const headerScrollRef = useAnimatedRef<Animated.ScrollView>();
 
     // --- Shared Values ---
     const scrollX = useSharedValue(0);
-    const scrollY = useSharedValue(0); // Driven by main vertical scroll
 
     const initialScrollDone = useRef(false);
+    const isFirstCategoryChange = useRef(true);
 
     // --- Scroll Handlers ---
     const onHorizontalScroll = useAnimatedScrollHandler({
@@ -57,11 +59,14 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         },
     });
 
-    const onVerticalScroll = useAnimatedScrollHandler({
-        onScroll: (event) => {
-            scrollY.value = event.contentOffset.y;
-        },
-    });
+    // --- Scroll to top when category changes ---
+    useEffect(() => {
+        if (isFirstCategoryChange.current) {
+            isFirstCategoryChange.current = false;
+            return;
+        }
+        mainVerticalRef.current?.scrollTo({ y: 0, animated: true });
+    }, [selectedCategoryId]);
 
     // --- Now line offset ---
     const [nowOffset, setNowOffset] = useState(0);
@@ -138,43 +143,41 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/* 
-                Main Vertical ScrollView handles the entire page vertical scrolling.
-                We use stickyHeaderIndices to keep the Banner, Day Selector, and Time Header at top.
+            {/*
+                Main Vertical ScrollView — uses native RN ScrollView (not reanimated)
+                so that stickyHeaderIndices works properly with touch events.
+
+                Layout:
+                  [0] Banner — scrolls away naturally (no collapsible animation)
+                  [1] Sticky Nav + Time Header — sticks to the top via stickyHeaderIndices
+                  [2] Grid content — scrolls normally
+                  [3] Footer
+                  [4] Bottom padding
             */}
-            <Animated.ScrollView
+            <ScrollView
                 ref={mainVerticalRef}
-                onScroll={onVerticalScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
                 bounces={false}
-                stickyHeaderIndices={[0]} // Index 0 is the Header Container (Banner + Nav + TimeHeader)
-                contentContainerStyle={{ paddingBottom: 0 }} // Footer has its own height
+                stickyHeaderIndices={[1]}
+                contentContainerStyle={{ paddingBottom: 0 }}
                 refreshControl={
                     onRefresh ? (
                         <RefreshControl
                             refreshing={!!refreshing}
                             onRefresh={onRefresh}
                             tintColor={theme.colors.primary}
-                            progressViewOffset={200} // Push loader down below headers
+                            progressViewOffset={200}
                         />
                     ) : undefined
                 }
             >
-                {/* 
-                    STICKY HEADER CONTAINER 
-                    This entire block sticks to the top.
-                    It contains:
-                    1. Collapsible Banner (Self-collapsing based on scrollY)
-                    2. Sticky Nav (Day Selector)
-                    3. Grid Headers (Channel Label + Time Header)
-                */}
-                <View style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}>
-                    <CollapsibleBanner scrollY={scrollY}>
-                        {bannerContent}
-                    </CollapsibleBanner>
+                {/* [0] Banner — scrolls away when user scrolls down */}
+                <View>{bannerContent}</View>
 
+                {/* [1] STICKY HEADER — sticks to top when banner scrolls off */}
+                <View style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}>
                     {stickyNavContent}
 
                     {/* Grid Header Row */}
@@ -208,11 +211,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                     </View>
                 </View>
 
-                {/* 
-                    MAIN CONTENT ROW 
-                    Left: Channel Logos (Static column)
-                    Right: Program Grid (Horizontal ScrollView)
-                */}
+                {/* [2] MAIN CONTENT ROW */}
                 <View style={styles.gridRow}>
                     {/* Left Column: Logos */}
                     <View style={[styles.leftColumn, { backgroundColor: theme.colors.background }]}>
@@ -251,13 +250,13 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                     </View>
                 </View>
 
-                {/* Footer at the bottom of the page */}
+                {/* [3] Footer */}
                 <LegalFooter width={WINDOW_WIDTH} />
 
-                {/* Extra padding for nav bar */}
-                <View style={{ height: 80 }} />
+                {/* [4] Extra padding for tab bar + safe area */}
+                <View style={{ height: 68 + insets.bottom + 16 }} />
 
-            </Animated.ScrollView>
+            </ScrollView>
 
             {/* EN VIVO FAB */}
             {isFabVisible && (
@@ -308,7 +307,7 @@ const styles = StyleSheet.create({
     },
     timeHeaderContainer: {
         flex: 1,
-        overflow: 'hidden', // Clip the sliding header
+        overflow: 'hidden',
     },
     gridRow: {
         flexDirection: 'row',
@@ -332,7 +331,7 @@ const styles = StyleSheet.create({
     },
     fabWrapper: {
         position: 'absolute',
-        bottom: 100, // Lifted slightly higher above tab bar
+        bottom: 100,
         left: 0,
         right: 0,
         alignItems: 'center',

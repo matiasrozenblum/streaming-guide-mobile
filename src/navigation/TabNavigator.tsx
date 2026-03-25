@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as NavigationBar from 'expo-navigation-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StreamersScreen } from '../screens/StreamersScreen';
@@ -10,6 +12,15 @@ const Tab = createBottomTabNavigator();
 
 export const TabNavigator = () => {
     const theme = getTheme('dark');
+    const insets = useSafeAreaInsets();
+
+    // Set Android system navigation bar to match app theme
+    useEffect(() => {
+        if (Platform.OS === 'android') {
+            NavigationBar.setBackgroundColorAsync(theme.colors.background);
+            NavigationBar.setButtonStyleAsync('light');
+        }
+    }, []);
 
     return (
         <Tab.Navigator
@@ -23,8 +34,8 @@ export const TabNavigator = () => {
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    height: Platform.OS === 'ios' ? 76 : 76,
-                    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+                    height: 68 + insets.bottom,
+                    paddingBottom: insets.bottom + 8,
                     paddingTop: 0,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -2 },
@@ -36,7 +47,7 @@ export const TabNavigator = () => {
                 tabBarInactiveTintColor: theme.colors.textSecondary,
                 tabBarItemStyle: {
                     paddingTop: 0,
-                    paddingBottom: 12,
+                    paddingBottom: 4,
                 },
                 tabBarIconStyle: {
                     width: 34,

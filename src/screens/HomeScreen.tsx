@@ -236,6 +236,7 @@ export const HomeScreen = () => {
                     stickyNavContent={renderStickyNavContent()}
                     onRefresh={onRefresh}
                     refreshing={refreshing}
+                    selectedCategoryId={selectedCategory?.id ?? null}
                 />
             </SafeAreaView>
         </View>
