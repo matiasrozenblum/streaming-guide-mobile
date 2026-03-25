@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLoginModal } from '../context/LoginModalContext';
-import { View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, RefreshControl, Alert, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Header } from '../components/Header';
 import { Streamer } from '../types/streamer';
 import { StreamerService } from '../services/streamer.service';
 import { StreamerCard } from '../components/StreamerCard';
+import { requestNotificationPermission } from '../hooks/usePushNotifications';
 import { trackEvent } from '../lib/analytics';
 
 export const StreamersScreen = () => {
@@ -69,6 +70,32 @@ export const StreamersScreen = () => {
 
         try {
             if (newStatus) {
+                // Request notification permission before subscribing
+                const permissionGranted = await requestNotificationPermission();
+                if (!permissionGranted) {
+                    // Revert optimistic update
+                    setStreamers(prev => prev.map(s =>
+                        s.id === streamer.id ? { ...s, is_subscribed: isSubscribed } : s
+                    ));
+                    Alert.alert(
+                        'Notificaciones desactivadas',
+                        'Para recibir alertas cuando un streamer comience a transmitir, necesitás habilitar las notificaciones en la configuración de tu dispositivo.',
+                        [
+                            { text: 'Cancelar', style: 'cancel' },
+                            {
+                                text: 'Ir a Configuración',
+                                onPress: () => {
+                                    if (Platform.OS === 'ios') {
+                                        Linking.openURL('app-settings:');
+                                    } else {
+                                        Linking.openSettings();
+                                    }
+                                },
+                            },
+                        ],
+                    );
+                    return;
+                }
                 await StreamerService.subscribe(streamer.id, session.accessToken);
                 trackEvent('subscribe', { method: 'channel', channel_name: streamer.name });
             } else {
