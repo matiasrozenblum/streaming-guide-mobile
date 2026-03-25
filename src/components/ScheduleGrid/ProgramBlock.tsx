@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, ScrollView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Schedule } from '../../types/schedule';
 import dayjs from 'dayjs';
@@ -8,6 +8,7 @@ import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLoginModal } from '../../context/LoginModalContext';
 import { subscriptionsApi } from '../../services/api';
+import { requestNotificationPermission } from '../../hooks/usePushNotifications';
 import { alpha, borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
 import { trackEvent } from '../../lib/analytics';
 import { getTheme } from '../../theme';
@@ -50,6 +51,28 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
                 setIsSubscribed(false);
                 trackEvent('program_unsubscribe', { program_name: schedule.program.name });
             } else {
+                // Request notification permission before subscribing (shows system dialog if not yet granted)
+                const permissionGranted = await requestNotificationPermission();
+                if (!permissionGranted) {
+                    Alert.alert(
+                        'Notificaciones desactivadas',
+                        'Para recibir alertas cuando un programa sale en vivo, necesitás habilitar las notificaciones en la configuración de tu dispositivo.',
+                        [
+                            { text: 'Cancelar', style: 'cancel' },
+                            {
+                                text: 'Ir a Configuración',
+                                onPress: () => {
+                                    if (Platform.OS === 'ios') {
+                                        Linking.openURL('app-settings:');
+                                    } else {
+                                        Linking.openSettings();
+                                    }
+                                },
+                            },
+                        ],
+                    );
+                    return;
+                }
                 await subscriptionsApi.subscribe(schedule.program.id, session.accessToken);
                 setIsSubscribed(true);
                 trackEvent('subscribe', { method: 'program', program_name: schedule.program.name });

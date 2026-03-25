@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
     View, StyleSheet, Dimensions, ActivityIndicator,
-    TouchableOpacity, Text, RefreshControl, ScrollView,
+    TouchableOpacity, Text, RefreshControl, ScrollView, Platform,
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedScrollHandler,
@@ -254,7 +254,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 <LegalFooter width={WINDOW_WIDTH} />
 
                 {/* [4] Extra padding for tab bar + safe area */}
-                <View style={{ height: 68 + insets.bottom + 16 }} />
+                <View style={{ height: Platform.OS === 'android' ? 68 + insets.bottom + 16 : 68 + 16 }} />
 
             </ScrollView>
 

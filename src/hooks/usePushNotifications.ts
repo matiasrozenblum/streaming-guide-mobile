@@ -1,19 +1,78 @@
 import { useEffect, useRef } from 'react';
 import messaging from '@react-native-firebase/messaging';
-import { Alert, Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceService } from '../services/device.service';
 import * as Device from 'expo-device';
 import { useAuth } from '../context/AuthContext';
-import { navigate, navigationRef } from '../navigation/NavigationService';
+import { navigate } from '../navigation/NavigationService';
 import { videoPlayerRef } from '../context/VideoPlayerContext';
+
+const PUSH_PROMPT_SHOWN_KEY = '@push_permission_prompted';
+
+// Module-level state shared between hook and exported function
+let fcmToken: string | null = null;
+
+/**
+ * Request notification permission on demand (e.g. when user subscribes to a program).
+ * Returns true if permission was granted, false otherwise.
+ * Safe to call multiple times — if already granted, resolves immediately.
+ */
+export async function requestNotificationPermission(): Promise<boolean> {
+    if (Platform.OS === 'web' || !Device.isDevice) return false;
+
+    // Check current status first (no dialog)
+    const currentStatus = await messaging().hasPermission();
+    const alreadyEnabled =
+        currentStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        currentStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (alreadyEnabled && fcmToken) {
+        return true;
+    }
+
+    // Request permission (shows system dialog on Android 13+ and iOS)
+    console.log('[Push] Requesting notification permission...');
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (!enabled) {
+        console.log('[Push] Permission denied by user');
+        return false;
+    }
+
+    console.log('[Push] Permission granted by user');
+
+    if (Platform.OS === 'ios') {
+        await messaging().registerDeviceForRemoteMessages();
+    }
+
+    // Get FCM token if we don't have one yet
+    if (!fcmToken) {
+        try {
+            fcmToken = await messaging().getToken();
+            console.log('[Push] FCM token obtained:', fcmToken?.substring(0, 20) + '...');
+        } catch (error: any) {
+            console.error('[Push] Failed to get FCM token:', error);
+        }
+    }
+
+    return true;
+}
+
+/** Get the current FCM token (may be null if permission not yet granted) */
+export function getFcmToken(): string | null {
+    return fcmToken;
+}
 
 export function usePushNotifications() {
     const { session, isAuthenticated } = useAuth();
     const registeredRef = useRef(false);
-    const fcmTokenRef = useRef<string | null>(null);
 
-    // Effect 1: Setup Firebase messaging (runs once on mount, independent of auth)
+    // Effect 1: Setup Firebase messaging (channel, handlers, silent permission check — NO dialog)
     useEffect(() => {
         if (Platform.OS === 'web' || !Device.isDevice) return;
 
@@ -31,47 +90,55 @@ export function usePushNotifications() {
                 console.log('[Push] Android notification channel created');
             }
 
-            console.log('[Push] Requesting notification permission...');
-            const authStatus = await messaging().requestPermission();
-            const enabled =
-                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+            // Check if permission was already granted
+            const currentStatus = await messaging().hasPermission();
+            let enabled =
+                currentStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                currentStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
+            // If not yet granted, check if this is the first app launch — prompt once
             if (!enabled) {
-                console.log('[Push] Permission denied, authStatus:', authStatus);
-                return;
+                const alreadyPrompted = await AsyncStorage.getItem(PUSH_PROMPT_SHOWN_KEY);
+                if (!alreadyPrompted) {
+                    console.log('[Push] First launch — requesting notification permission...');
+                    await AsyncStorage.setItem(PUSH_PROMPT_SHOWN_KEY, 'true');
+                    const authStatus = await messaging().requestPermission();
+                    enabled =
+                        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+                } else {
+                    console.log('[Push] Permission not granted (will request when user subscribes)');
+                }
             }
-            console.log('[Push] Permission granted');
 
-            if (Platform.OS === 'ios') {
-                await messaging().registerDeviceForRemoteMessages();
-            }
+            if (enabled) {
+                console.log('[Push] Permission granted');
 
-            try {
-                const token = await messaging().getToken();
-                console.log('[Push] FCM token obtained:', token?.substring(0, 20) + '...');
-                fcmTokenRef.current = token;
-            } catch (error: any) {
-                console.error('[Push] Failed to get FCM token:', error);
-                return;
+                if (Platform.OS === 'ios') {
+                    await messaging().registerDeviceForRemoteMessages();
+                }
+
+                try {
+                    fcmToken = await messaging().getToken();
+                    console.log('[Push] FCM token obtained:', fcmToken?.substring(0, 20) + '...');
+                } catch (error: any) {
+                    console.error('[Push] Failed to get FCM token:', error);
+                }
             }
 
             // Listen for token refresh
             unsubscribeTokenRefresh = messaging().onTokenRefresh((newToken) => {
                 console.log('[Push] FCM Token refreshed:', newToken?.substring(0, 20) + '...');
-                fcmTokenRef.current = newToken;
-                // Re-register if already authenticated
+                fcmToken = newToken;
                 registeredRef.current = false;
             });
 
             // Foreground message handler
             unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
                 console.log('[Push] Foreground notification received:', remoteMessage.notification?.title);
-                // We do NOT show an Alert.alert here because the user wants to avoid the "double" notification effect.
-                // The system notification (if configured to show in foreground) or just the badge/sound is enough.
             });
 
-            // Handle user tapping the notification when the app is running in the background
+            // Handle notification tap from background
             messaging().onNotificationOpenedApp(remoteMessage => {
                 console.log('[Push] Notification caused app to open from background:', remoteMessage);
                 const url = remoteMessage?.data?.url;
@@ -82,14 +149,13 @@ export function usePushNotifications() {
                     if (domain.includes('kick.com')) service = 'kick';
 
                     navigate('MainTabs', { screen: 'Streamers' });
-                    // Provide a tiny delay for navigation state to settle
                     setTimeout(() => {
                         videoPlayerRef.current?.openVideo(url, service);
                     }, 300);
                 }
             });
 
-            // Handle user tapping the notification to fully launch the app from a quit state
+            // Handle notification tap from quit state
             messaging().getInitialNotification().then(remoteMessage => {
                 if (remoteMessage) {
                     console.log('[Push] Notification caused app to open from quit state:', remoteMessage);
@@ -100,10 +166,8 @@ export function usePushNotifications() {
                         if (domain.includes('twitch.tv')) service = 'twitch';
                         if (domain.includes('kick.com')) service = 'kick';
 
-                        // Navigate to Streamers screen slightly delayed to let the app fully mount
                         setTimeout(() => {
                             navigate('MainTabs', { screen: 'Streamers' });
-                            // Open the inner video player right after
                             setTimeout(() => {
                                 videoPlayerRef.current?.openVideo(url, service);
                             }, 500);
@@ -115,15 +179,13 @@ export function usePushNotifications() {
 
         setupFirebase().catch((error) => {
             console.error('[Push] Firebase setup failed:', error?.message || error);
-            // TODO: Remove this alert after debugging push notifications
-            Alert.alert('[DEBUG] Push Setup Error', String(error?.message || error));
         });
 
         return () => {
             unsubscribeTokenRefresh?.();
             unsubscribeOnMessage?.();
         };
-    }, []); // Runs once on mount
+    }, []);
 
     // Effect 2: Register with backend when authenticated AND we have a token
     useEffect(() => {
@@ -132,15 +194,14 @@ export function usePushNotifications() {
         }
 
         const registerWithBackend = async () => {
-            // Wait a moment for FCM token to be available if it hasn't loaded yet
+            // Wait a moment for FCM token to be available
             let attempts = 0;
-            while (!fcmTokenRef.current && attempts < 10) {
+            while (!fcmToken && attempts < 10) {
                 console.log('[Push] Waiting for FCM token... attempt', attempts + 1);
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 attempts++;
             }
 
-            const fcmToken = fcmTokenRef.current;
             if (!fcmToken) {
                 console.log('[Push] No FCM token available after waiting, skipping registration');
                 return;
@@ -158,8 +219,6 @@ export function usePushNotifications() {
                 console.log('[Push] Registration complete!');
             } catch (error: any) {
                 console.error('[Push] Backend registration failed:', error?.message || error);
-                // TODO: Remove this alert after debugging push notifications
-                Alert.alert('[DEBUG] Registration Error', String(error?.message || error));
             }
         };
 
