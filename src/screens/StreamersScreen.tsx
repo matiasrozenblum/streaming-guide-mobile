@@ -98,13 +98,13 @@ export const StreamersScreen = () => {
                 }
                 await StreamerService.subscribe(streamer.id, session.accessToken);
                 trackEvent('streamer_subscribe', { 
-                    streamer_id: streamer.id.toString(),
+                    streamer_id: streamer.id,
                     streamer_name: streamer.name,
                 });
             } else {
                 await StreamerService.unsubscribe(streamer.id, session.accessToken);
                 trackEvent('streamer_unsubscribe', { 
-                    streamer_id: streamer.id.toString(),
+                    streamer_id: streamer.id,
                     streamer_name: streamer.name,
                 });
             }

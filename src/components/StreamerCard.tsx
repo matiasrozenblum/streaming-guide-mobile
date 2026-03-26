@@ -24,7 +24,7 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
         trackEvent(streamer.is_live ? 'click_streamer_live' : 'click_streamer_offline', { 
             category: 'streamer',
             streamer_name: streamer.name,
-            streamer_id: streamer.id.toString(),
+            streamer_id: streamer.id,
             platform: service,
         });
         if (service === 'youtube' || service === 'twitch' || service === 'kick') {

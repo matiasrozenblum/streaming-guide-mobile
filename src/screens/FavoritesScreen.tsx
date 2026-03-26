@@ -125,7 +125,7 @@ const SubscriptionTile = ({
                                         trackEvent(isLive ? 'click_streamer_live' : 'click_streamer_offline', { 
                                             category: 'streamer',
                                             streamer_name: title,
-                                            streamer_id: streamerId.toString(),
+                                            streamer_id: streamerId,
                                             platform: s.service,
                                         });
                                     } else {
