@@ -43,7 +43,9 @@ const SubscriptionTile = ({
     onToggleDelete,
     onDelete,
     onPress,
-    services
+    services,
+    isLive,
+    streamerId
 }: {
     id: string | number,
     title: string,
@@ -55,7 +57,9 @@ const SubscriptionTile = ({
     onToggleDelete: (id: string | number) => void,
     onDelete: () => void,
     onPress?: () => void,
-    services?: { service: StreamingService, url: string }[]
+    services?: { service: StreamingService, url: string }[],
+    isLive?: boolean,
+    streamerId?: string | number
 }) => {
     const showDelete = activeDeleteId === id;
 
@@ -117,7 +121,17 @@ const SubscriptionTile = ({
                                 key={idx}
                                 style={styles.serviceIconContainer}
                                 onPress={() => {
-                                    trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: s.url, channel_name: title });
+                                    if (isStreamer && streamerId) {
+                                        trackEvent(isLive ? 'click_streamer_live' : 'click_streamer_offline', { 
+                                            category: 'streamer',
+                                            streamer_name: title,
+                                            streamer_id: streamerId.toString(),
+                                            platform: s.service,
+                                        });
+                                    } else {
+                                        // Fallback if not a streamer
+                                        trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: s.url, channel_name: title });
+                                    }
                                     Linking.openURL(s.url);
                                 }}
                             >
@@ -300,6 +314,8 @@ export const FavoritesScreen = () => {
                                             imageUrl={streamer.logo_url || undefined}
                                             imageColor={getColorForChannel((streamer.order ?? 1) - 1)}
                                             isStreamer={true}
+                                            isLive={streamer.is_live}
+                                            streamerId={streamer.id}
                                             onDelete={() => handleUnsubscribeStreamer(streamer.id)}
                                             services={streamer.services}
                                         />

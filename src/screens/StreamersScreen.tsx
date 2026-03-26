@@ -97,10 +97,16 @@ export const StreamersScreen = () => {
                     return;
                 }
                 await StreamerService.subscribe(streamer.id, session.accessToken);
-                trackEvent('subscribe', { method: 'channel', channel_name: streamer.name });
+                trackEvent('streamer_subscribe', { 
+                    streamer_id: streamer.id.toString(),
+                    streamer_name: streamer.name,
+                });
             } else {
                 await StreamerService.unsubscribe(streamer.id, session.accessToken);
-                trackEvent('streamer_unsubscribe', { channel_name: streamer.name });
+                trackEvent('streamer_unsubscribe', { 
+                    streamer_id: streamer.id.toString(),
+                    streamer_name: streamer.name,
+                });
             }
         } catch (error) {
             console.error('Error toggling subscription:', error);

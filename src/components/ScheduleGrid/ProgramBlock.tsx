@@ -49,7 +49,11 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
             if (isSubscribed) {
                 await subscriptionsApi.unsubscribe(schedule.program.id, session.accessToken);
                 setIsSubscribed(false);
-                trackEvent('program_unsubscribe', { program_name: schedule.program.name });
+                trackEvent('program_unsubscribe', { 
+                    program_id: schedule.program.id.toString(),
+                    program_name: schedule.program.name,
+                    channel_name: schedule.program.channel?.name || 'unknown',
+                });
             } else {
                 // Request notification permission before subscribing (shows system dialog if not yet granted)
                 const permissionGranted = await requestNotificationPermission();
@@ -75,7 +79,11 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
                 }
                 await subscriptionsApi.subscribe(schedule.program.id, session.accessToken);
                 setIsSubscribed(true);
-                trackEvent('subscribe', { method: 'program', program_name: schedule.program.name });
+                trackEvent('program_subscribe', { 
+                    program_id: schedule.program.id.toString(),
+                    program_name: schedule.program.name,
+                    channel_name: schedule.program.channel?.name || 'unknown',
+                });
             }
         } catch (error) {
             console.error('Failed to toggle subscription:', error);
@@ -246,6 +254,11 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
                                                 if (schedule.program.stream_url?.includes('kick')) service = 'kick';
 
                                                 if (schedule.program.stream_url) {
+                                                    trackEvent(schedule.program.is_live ? 'click_youtube_live' : 'click_youtube_deferred', {
+                                                        category: 'program',
+                                                        program_name: schedule.program.name,
+                                                        channel_name: schedule.program.channel?.name || 'unknown',
+                                                    });
                                                     openVideo(schedule.program.stream_url, service);
                                                 }
                                             }}

@@ -21,7 +21,12 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
     const theme = getTheme('dark'); // TODO: Get from context
 
     const handleServicePress = (url: string, service: StreamingService) => {
-        trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: url, channel_name: streamer.name });
+        trackEvent(streamer.is_live ? 'click_streamer_live' : 'click_streamer_offline', { 
+            category: 'streamer',
+            streamer_name: streamer.name,
+            streamer_id: streamer.id.toString(),
+            platform: service,
+        });
         if (service === 'youtube' || service === 'twitch' || service === 'kick') {
             openVideo(url, service);
         } else {
