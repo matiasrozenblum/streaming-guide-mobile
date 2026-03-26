@@ -103,7 +103,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ...config,
         name: getAppName(),
         slug: "la-guia-del-streaming",
-        version: "1.0.1",
+        version: "1.0.2",
         orientation: "portrait",
         icon: getAppIcon(),
         userInterfaceStyle: "dark",
@@ -117,7 +117,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ios: {
             supportsTablet: false,
             bundleIdentifier: getUniqueIdentifier(),
-            buildNumber: "3",
             googleServicesFile: IS_STAGING ? "./GoogleService-Info.staging.plist" : "./GoogleService-Info.plist",
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
