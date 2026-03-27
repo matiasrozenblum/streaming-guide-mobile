@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, FlatList, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { Banner, LinkType } from '../types/banner';
 import { trackEvent } from '../lib/analytics';
@@ -17,24 +17,55 @@ export const BannerCarousel = ({ banners }: Props) => {
     const [currentPage, setCurrentPage] = useState(0);
     const flatListRef = useRef<FlatList>(null);
     const isAutoScrolling = useRef(false);
+    const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const isLoopable = banners && banners.length > 1;
+
+    // For infinite loop: [last, ...banners, first] so swiping past edges wraps around
+    const loopData = useMemo(() => {
+        if (!banners || banners.length <= 1) return banners || [];
+        return [banners[banners.length - 1], ...banners, banners[0]];
+    }, [banners]);
+
+    // In loop mode, real items start at index 1
+    const realToLoopIndex = useCallback((realIndex: number) => {
+        return isLoopable ? realIndex + 1 : realIndex;
+    }, [isLoopable]);
+
+    const scrollToIndex = useCallback((index: number, animated: boolean) => {
+        flatListRef.current?.scrollToOffset({
+            offset: BANNER_WIDTH * index,
+            animated,
+        });
+    }, []);
 
     const goToNextPage = useCallback(() => {
-        if (!banners || banners.length <= 1) return;
+        if (!isLoopable) return;
 
-        const nextIndex = (currentPage + 1) % banners.length;
+        const nextRealIndex = (currentPage + 1) % banners.length;
+        const nextLoopIndex = realToLoopIndex(currentPage) + 1;
         isAutoScrolling.current = true;
-        flatListRef.current?.scrollToIndex({
-            index: nextIndex,
-            animated: true,
-        });
-        setCurrentPage(nextIndex);
-    }, [currentPage, banners]);
+        scrollToIndex(nextLoopIndex, true);
+        setCurrentPage(nextRealIndex);
+    }, [currentPage, banners, isLoopable, realToLoopIndex, scrollToIndex]);
+
+    const startAutoScroll = useCallback(() => {
+        if (!isLoopable) return;
+        if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
+        autoScrollTimer.current = setInterval(goToNextPage, 5000);
+    }, [isLoopable, goToNextPage]);
+
+    const stopAutoScroll = useCallback(() => {
+        if (autoScrollTimer.current) {
+            clearInterval(autoScrollTimer.current);
+            autoScrollTimer.current = null;
+        }
+    }, []);
 
     useEffect(() => {
-        if (!banners || banners.length <= 1) return;
-        const interval = setInterval(goToNextPage, 5000);
-        return () => clearInterval(interval);
-    }, [banners, goToNextPage]);
+        startAutoScroll();
+        return stopAutoScroll;
+    }, [startAutoScroll, stopAutoScroll]);
 
     if (!banners || banners.length === 0) return null;
 
@@ -45,15 +76,34 @@ export const BannerCarousel = ({ banners }: Props) => {
         }
     };
 
-    const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        if (isAutoScrolling.current) {
-            isAutoScrolling.current = false;
-            return;
+    const handleScrollBeginDrag = () => {
+        stopAutoScroll();
+    };
+
+    const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const offsetX = event.nativeEvent.contentOffset.x;
+        const loopIndex = Math.round(offsetX / BANNER_WIDTH);
+
+        if (isLoopable) {
+            // Scrolled to the clone of the last item (index 0) → jump to real last item
+            if (loopIndex <= 0) {
+                scrollToIndex(banners.length, false);
+                setCurrentPage(banners.length - 1);
+            }
+            // Scrolled to the clone of the first item (index banners.length + 1) → jump to real first item
+            else if (loopIndex >= banners.length + 1) {
+                scrollToIndex(1, false);
+                setCurrentPage(0);
+            } else {
+                // Normal case: loopIndex maps to real index (loopIndex - 1)
+                setCurrentPage(loopIndex - 1);
+            }
+        } else {
+            setCurrentPage(loopIndex);
         }
-        const newIndex = Math.round(event.nativeEvent.contentOffset.x / BANNER_WIDTH);
-        if (newIndex !== currentPage && newIndex >= 0 && newIndex < banners.length) {
-            setCurrentPage(newIndex);
-        }
+
+        isAutoScrolling.current = false;
+        startAutoScroll();
     };
 
     const renderItem = ({ item }: { item: Banner }) => {
@@ -87,18 +137,22 @@ export const BannerCarousel = ({ banners }: Props) => {
         <View style={[styles.container, { height: BANNER_HEIGHT }]}>
             <FlatList
                 ref={flatListRef}
-                data={banners}
-                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                data={loopData}
+                keyExtractor={(_, index) => `banner-${index}`}
                 renderItem={renderItem}
                 horizontal
-                pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleMomentumScrollEnd}
+                onScrollBeginDrag={handleScrollBeginDrag}
+                onMomentumScrollEnd={handleScrollEnd}
                 getItemLayout={(_, index) => ({
                     length: BANNER_WIDTH,
                     offset: BANNER_WIDTH * index,
                     index,
                 })}
+                initialScrollIndex={isLoopable ? 1 : 0}
+                decelerationRate="fast"
+                snapToInterval={BANNER_WIDTH}
+                snapToAlignment="start"
             />
 
             {banners.length > 1 && (
