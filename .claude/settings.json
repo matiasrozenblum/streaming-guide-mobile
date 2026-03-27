@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npm run start:*)",
+      "Bash(npm run ios:*)",
+      "Bash(npm run android:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)"
+    ]
+  }
+}
