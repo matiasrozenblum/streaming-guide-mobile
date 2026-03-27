@@ -141,6 +141,7 @@ export const BannerCarousel = ({ banners }: Props) => {
                 keyExtractor={(_, index) => `banner-${index}`}
                 renderItem={renderItem}
                 horizontal
+                pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onScrollBeginDrag={handleScrollBeginDrag}
                 onMomentumScrollEnd={handleScrollEnd}
@@ -150,9 +151,6 @@ export const BannerCarousel = ({ banners }: Props) => {
                     index,
                 })}
                 initialScrollIndex={isLoopable ? 1 : 0}
-                decelerationRate="fast"
-                snapToInterval={BANNER_WIDTH}
-                snapToAlignment="start"
             />
 
             {banners.length > 1 && (
