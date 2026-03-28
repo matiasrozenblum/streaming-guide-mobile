@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { palette, getTheme } from '../theme';
+import 'dayjs/locale/en';
+import { getTheme } from '../theme';
 import { trackEvent } from '../lib/analytics';
 import { spacing, borderRadius, fontSize, fontWeight } from '../theme/tokens';
 
@@ -10,49 +11,28 @@ dayjs.locale('es');
 
 interface Day {
     label: string;
-    value: string;
-    date: string;
-    isToday: boolean;
+    value: string; // English day name ('monday', 'friday', etc.)
 }
 
+// Static week definition — labels + backend day_of_week values, Mon–Sun order
+const WEEK_DAYS: Day[] = [
+    { label: 'L', value: 'monday' },
+    { label: 'M', value: 'tuesday' },
+    { label: 'X', value: 'wednesday' },
+    { label: 'J', value: 'thursday' },
+    { label: 'V', value: 'friday' },
+    { label: 'S', value: 'saturday' },
+    { label: 'D', value: 'sunday' },
+];
+
 interface Props {
-    selectedDate: string;
+    selectedDate: string; // English day name or '' for today
     onSelectDate: (date: string) => void;
 }
 
 export const DaySelector = ({ selectedDate, onSelectDate }: Props) => {
-    const theme = getTheme('dark');
-    const today = dayjs();
-
-    // Fixed order of days starting from Monday (matching web)
-    const daysOfWeek = [
-        { label: 'L', dayIndex: 1 }, // Monday
-        { label: 'M', dayIndex: 2 }, // Tuesday
-        { label: 'X', dayIndex: 3 }, // Wednesday
-        { label: 'J', dayIndex: 4 }, // Thursday
-        { label: 'V', dayIndex: 5 }, // Friday
-        { label: 'S', dayIndex: 6 }, // Saturday
-        { label: 'D', dayIndex: 0 }, // Sunday
-    ];
-
-    // Calculate dates for the current week (Monday to Sunday)
-    const currentDayIndex = today.day(); // 0 = Sunday, 1 = Monday, etc.
-    const daysUntilMonday = currentDayIndex === 0 ? -6 : 1 - currentDayIndex;
-    const mondayOfWeek = today.add(daysUntilMonday, 'day');
-
-    const weekDays: Day[] = daysOfWeek.map((day, index) => {
-        const d = mondayOfWeek.add(index, 'day');
-        const isToday = d.format('YYYY-MM-DD') === today.format('YYYY-MM-DD');
-
-        return {
-            label: day.label,
-            value: d.format('YYYY-MM-DD'),
-            date: d.format('YYYY-MM-DD'),
-            isToday,
-        };
-    });
-
-    const activeDate = selectedDate || today.format('YYYY-MM-DD');
+    const todayName = dayjs().locale('en').format('dddd').toLowerCase();
+    const activeDate = selectedDate || todayName;
 
     return (
         <View style={styles.container}>
@@ -61,7 +41,7 @@ export const DaySelector = ({ selectedDate, onSelectDate }: Props) => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {weekDays.map((day) => {
+                {WEEK_DAYS.map((day) => {
                     const isActive = day.value === activeDate;
                     return (
                         <TouchableOpacity

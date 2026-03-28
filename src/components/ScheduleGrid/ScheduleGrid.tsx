@@ -34,9 +34,11 @@ interface ScheduleGridProps {
     onRefresh?: () => void;
     refreshing?: boolean;
     selectedCategoryId?: number | null;
+    isViewingToday?: boolean;
+    onResetToToday?: () => void;
 }
 
-export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId }: ScheduleGridProps) => {
+export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId, isViewingToday, onResetToToday }: ScheduleGridProps) => {
     const theme = getTheme('dark');
     const insets = useSafeAreaInsets();
 
@@ -50,6 +52,9 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     const initialScrollDone = useRef(false);
     const isFirstCategoryChange = useRef(true);
+    const isMounted = useRef(true);
+
+    useEffect(() => () => { isMounted.current = false; }, []);
 
     // --- Scroll Handlers ---
     const onHorizontalScroll = useAnimatedScrollHandler({
@@ -84,10 +89,12 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     }, [calculateOffset]);
 
     // --- FAB visibility ---
-    const [isFabVisible, setIsFabVisible] = useState(false);
+    // Show FAB when scrolled far from now, OR when viewing a different day
+    const [isFabVisibleByScroll, setIsFabVisibleByScroll] = useState(false);
+    const isFabVisible = isFabVisibleByScroll || isViewingToday === false;
     const WINDOW_WIDTH = Dimensions.get('window').width;
 
-    // Helper to check FAB visibility on JS thread
+    // Helper to check FAB visibility on JS thread (scroll-based)
     const checkFab = (currentX: number) => {
         const now = dayjs();
         const minutes = now.hour() * 60 + now.minute();
@@ -96,7 +103,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         const idealX = Math.max(0, (minutes * PIXELS_PER_MINUTE) - (visibleProgramWidth / 2));
 
         const isVisible = Math.abs(currentX - idealX) > visibleProgramWidth / 2;
-        setIsFabVisible(isVisible);
+        setIsFabVisibleByScroll(isVisible);
     };
 
     // Watch scrollX for FAB
@@ -126,8 +133,10 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     useEffect(() => {
         if (!loading && channels.length > 0 && !initialScrollDone.current) {
             setTimeout(() => {
-                scrollToNow(false);
-                initialScrollDone.current = true;
+                if (isMounted.current) {
+                    scrollToNow(false);
+                    initialScrollDone.current = true;
+                }
             }, 100);
         }
     }, [loading, channels, scrollToNow]);
@@ -260,11 +269,22 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
             {/* EN VIVO FAB */}
             {isFabVisible && (
-                <View style={styles.fabWrapper} pointerEvents="box-none">
+                <View
+                    style={[
+                        styles.fabWrapper,
+                        { bottom: Platform.OS === 'android' ? 68 + insets.bottom + 16 : 84 },
+                    ]}
+                    pointerEvents="box-none"
+                >
                     <TouchableOpacity
                         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
                         onPress={() => {
-                            scrollToNow(true);
+                            if (isViewingToday === false && onResetToToday) {
+                                onResetToToday();
+                                setTimeout(() => { if (isMounted.current) scrollToNow(true); }, 150);
+                            } else {
+                                scrollToNow(true);
+                            }
                             trackEvent('scroll_to_now', { action: 'scroll_to_now' });
                         }}
                         activeOpacity={0.8}
@@ -331,7 +351,6 @@ const styles = StyleSheet.create({
     },
     fabWrapper: {
         position: 'absolute',
-        bottom: 100,
         left: 0,
         right: 0,
         alignItems: 'center',
