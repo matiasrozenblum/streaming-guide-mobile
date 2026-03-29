@@ -66,7 +66,7 @@ export const HomeScreen = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<string>(''); // YYYY-MM-DD or empty for today
+    const [selectedDate, setSelectedDate] = useState<string>(''); // English day name ('monday', etc.) or '' for today
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const weekLoadedRef = useRef(false);
 
