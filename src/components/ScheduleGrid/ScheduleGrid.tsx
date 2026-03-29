@@ -34,9 +34,11 @@ interface ScheduleGridProps {
     onRefresh?: () => void;
     refreshing?: boolean;
     selectedCategoryId?: number | null;
+    isViewingToday?: boolean;
+    onResetToToday?: () => void;
 }
 
-export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId }: ScheduleGridProps) => {
+export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId, isViewingToday, onResetToToday }: ScheduleGridProps) => {
     const theme = getTheme('dark');
     const insets = useSafeAreaInsets();
 
@@ -50,14 +52,44 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     const initialScrollDone = useRef(false);
     const isFirstCategoryChange = useRef(true);
+    const isMounted = useRef(true);
 
-    // --- Scroll Handlers ---
+    useEffect(() => () => { isMounted.current = false; }, []);
+
+    // --- Horizontal Scroll Handler (syncs time header) ---
     const onHorizontalScroll = useAnimatedScrollHandler({
         onScroll: (event) => {
             scrollX.value = event.contentOffset.x;
             scrollTo(headerScrollRef, event.contentOffset.x, 0, false);
         },
     });
+
+    // --- Nav overlay logic ---
+    // The sticky nav (DaySelector + CategorySelector) is inside the ScrollView at its natural
+    // position below the banner. When the user scrolls past the banner, the nav becomes "stuck"
+    // via stickyHeaderIndices. On Android, stickyHeaderIndices has a touch-offset bug where
+    // taps on the stuck header are mapped to wrong content coordinates.
+    //
+    // Fix: when the nav is stuck (scrollY > bannerHeight), render a pixel-perfect overlay copy
+    // of the nav OUTSIDE the ScrollView. The overlay has correct touch targets because it is
+    // not subject to the ScrollView's coordinate system. The in-scroll nav gets pointerEvents="none"
+    // while the overlay is active so only one copy receives touches at a time.
+    const bannerHeightRef = useRef(0);
+    const isNavOverlayActiveRef = useRef(false);
+    const [isNavOverlay, setIsNavOverlay] = useState(false);
+
+    const onBannerLayout = useCallback((e: { nativeEvent: { layout: { height: number } } }) => {
+        bannerHeightRef.current = e.nativeEvent.layout.height;
+    }, []);
+
+    const onVerticalScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+        const y = e.nativeEvent.contentOffset.y;
+        const shouldOverlay = bannerHeightRef.current > 0 && y > bannerHeightRef.current;
+        if (shouldOverlay !== isNavOverlayActiveRef.current) {
+            isNavOverlayActiveRef.current = shouldOverlay;
+            setIsNavOverlay(shouldOverlay);
+        }
+    }, []);
 
     // --- Scroll to top when category changes ---
     useEffect(() => {
@@ -84,10 +116,12 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     }, [calculateOffset]);
 
     // --- FAB visibility ---
-    const [isFabVisible, setIsFabVisible] = useState(false);
+    // Show FAB when scrolled far from now, OR when viewing a different day
+    const [isFabVisibleByScroll, setIsFabVisibleByScroll] = useState(false);
+    const isFabVisible = isFabVisibleByScroll || isViewingToday === false;
     const WINDOW_WIDTH = Dimensions.get('window').width;
 
-    // Helper to check FAB visibility on JS thread
+    // Helper to check FAB visibility on JS thread (scroll-based)
     const checkFab = (currentX: number) => {
         const now = dayjs();
         const minutes = now.hour() * 60 + now.minute();
@@ -96,7 +130,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         const idealX = Math.max(0, (minutes * PIXELS_PER_MINUTE) - (visibleProgramWidth / 2));
 
         const isVisible = Math.abs(currentX - idealX) > visibleProgramWidth / 2;
-        setIsFabVisible(isVisible);
+        setIsFabVisibleByScroll(isVisible);
     };
 
     // Watch scrollX for FAB
@@ -126,8 +160,10 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     useEffect(() => {
         if (!loading && channels.length > 0 && !initialScrollDone.current) {
             setTimeout(() => {
-                scrollToNow(false);
-                initialScrollDone.current = true;
+                if (isMounted.current) {
+                    scrollToNow(false);
+                    initialScrollDone.current = true;
+                }
             }, 100);
         }
     }, [loading, channels, scrollToNow]);
@@ -144,18 +180,30 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/*
-                Main Vertical ScrollView — uses native RN ScrollView (not reanimated)
-                so that stickyHeaderIndices works properly with touch events.
-
                 Layout:
-                  [0] Banner — scrolls away naturally (no collapsible animation)
-                  [1] Sticky Nav + Time Header — sticks to the top via stickyHeaderIndices
-                  [2] Grid content — scrolls normally
-                  [3] Footer
-                  [4] Bottom padding
+                  ScrollView:
+                    [0] Banner — scrolls away naturally
+                    [1] Sticky Nav + Time Header — sticks to top via stickyHeaderIndices
+                    [2] Grid content — scrolls normally
+                    [3] Footer
+                    [4] Bottom padding
+
+                Touch fix: when the nav is "stuck" (scrolled past banner), an absolutely-
+                positioned overlay copy of stickyNavContent is rendered outside the ScrollView.
+                The overlay has correct touch coordinates; the in-scroll nav gets
+                pointerEvents="none" while the overlay is active.
             */}
+
+            {/* Nav overlay — outside ScrollView, shown only when nav is stuck */}
+            {isNavOverlay && (
+                <View style={[styles.navOverlay, { backgroundColor: theme.colors.background }]}>
+                    {stickyNavContent}
+                </View>
+            )}
+
             <ScrollView
                 ref={mainVerticalRef}
+                onScroll={onVerticalScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
@@ -174,10 +222,13 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 }
             >
                 {/* [0] Banner — scrolls away when user scrolls down */}
-                <View>{bannerContent}</View>
+                <View onLayout={onBannerLayout}>{bannerContent}</View>
 
                 {/* [1] STICKY HEADER — sticks to top when banner scrolls off */}
-                <View style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}>
+                <View
+                    pointerEvents={isNavOverlay ? 'none' : 'auto'}
+                    style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}
+                >
                     {stickyNavContent}
 
                     {/* Grid Header Row */}
@@ -260,11 +311,22 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
             {/* EN VIVO FAB */}
             {isFabVisible && (
-                <View style={styles.fabWrapper} pointerEvents="box-none">
+                <View
+                    style={[
+                        styles.fabWrapper,
+                        { bottom: Platform.OS === 'android' ? 68 + insets.bottom + 16 : 84 },
+                    ]}
+                    pointerEvents="box-none"
+                >
                     <TouchableOpacity
                         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
                         onPress={() => {
-                            scrollToNow(true);
+                            if (isViewingToday === false && onResetToToday) {
+                                onResetToToday();
+                                setTimeout(() => { if (isMounted.current) scrollToNow(true); }, 150);
+                            } else {
+                                scrollToNow(true);
+                            }
                             trackEvent('scroll_to_now', { action: 'scroll_to_now' });
                         }}
                         activeOpacity={0.8}
@@ -286,6 +348,14 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    navOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 200,
+        elevation: 200,
     },
     headerRow: {
         flexDirection: 'row',
@@ -331,7 +401,6 @@ const styles = StyleSheet.create({
     },
     fabWrapper: {
         position: 'absolute',
-        bottom: 100,
         left: 0,
         right: 0,
         alignItems: 'center',

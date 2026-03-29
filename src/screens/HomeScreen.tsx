@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, StatusBar as RNStatusBar, Platform, ScrollView, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
@@ -66,7 +66,7 @@ export const HomeScreen = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<string>(''); // YYYY-MM-DD or empty for today
+    const [selectedDate, setSelectedDate] = useState<string>(''); // English day name ('monday', etc.) or '' for today
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const weekLoadedRef = useRef(false);
 
@@ -164,9 +164,10 @@ export const HomeScreen = () => {
     };
 
     // Filter week data by selected day (client-side, instant switching)
-    const selectedDayName = selectedDate
-        ? dayjs(selectedDate).locale('en').format('dddd').toLowerCase()
-        : dayjs().locale('en').format('dddd').toLowerCase();
+    // selectedDate stores an English day name ('monday', 'friday', etc.) or '' for today
+    const todayName = useMemo(() => dayjs().locale('en').format('dddd').toLowerCase(), []);
+    const selectedDayName = selectedDate || todayName;
+    const isViewingToday = !selectedDate || selectedDate === todayName;
 
     const filteredByDay: ChannelWithSchedules[] = weekChannels
         .map(ch => ({
@@ -196,6 +197,8 @@ export const HomeScreen = () => {
         await loadData(false);
         setRefreshing(false);
     }, []);
+
+    const onResetToToday = useCallback(() => setSelectedDate(''), []);
 
     const filteredChannels = selectedCategory
         ? filteredByDay.filter(c => c.channel.categories?.some(cat => cat.id === selectedCategory.id))
@@ -237,6 +240,8 @@ export const HomeScreen = () => {
                     onRefresh={onRefresh}
                     refreshing={refreshing}
                     selectedCategoryId={selectedCategory?.id ?? null}
+                    isViewingToday={isViewingToday}
+                    onResetToToday={onResetToToday}
                 />
             </SafeAreaView>
         </View>

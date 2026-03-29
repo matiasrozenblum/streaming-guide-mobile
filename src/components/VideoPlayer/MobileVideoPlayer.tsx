@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Dimensions, TouchableOpacity, PanResponder, Animated } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { WebView } from 'react-native-webview';
@@ -109,10 +109,18 @@ export const MobileVideoPlayer = () => {
     }, [isMinimized]);
 
     const [playing, setPlaying] = useState(true);
+    // Changing this key forces the YoutubePlayer to fully remount and recover
+    const [playerKey, setPlayerKey] = useState(0);
+
+    const remountPlayer = useCallback(() => {
+        setPlayerKey(k => k + 1);
+        setPlaying(true);
+    }, []);
 
     useEffect(() => {
         // Reset playing state when video changes
         setPlaying(true);
+        setPlayerKey(0);
     }, [youtubeVideoId, youtubePlaylistId]);
 
     if (!isVisible || (!embedUrl && !youtubeVideoId && !youtubePlaylistId)) return null;
@@ -218,19 +226,36 @@ export const MobileVideoPlayer = () => {
                 <View style={styles.webviewContainer}>
                     {(youtubeVideoId || youtubePlaylistId) ? (
                         <YoutubePlayer
+                            key={playerKey}
                             height={isMinimized ? MINIMIZED_HEIGHT - 30 : VIDEO_HEIGHT}
                             play={playing}
                             videoId={youtubeVideoId || undefined}
                             playList={youtubePlaylistId || undefined}
-                            onError={(error: string) => console.error('[VideoPlayer] YouTube error:', error)}
+                            onError={(error: string) => {
+                                console.error('[VideoPlayer] YouTube error:', error);
+                                // Remount after a brief delay to recover from mid-stream errors
+                                setTimeout(remountPlayer, 1500);
+                            }}
                             onReady={() => console.log('[VideoPlayer] YouTube player ready')}
                             onChangeState={(state: string) => {
                                 if (state === 'ended') setPlaying(false);
                             }}
                             webViewProps={{
-                                androidLayerType: 'hardware',
+                                // Do NOT use androidLayerType: 'hardware' — Android recycles
+                                // hardware compositor layers after ~3 min of low interaction,
+                                // causing the classic "freeze then blank" bug on live streams.
                                 mediaPlaybackRequiresUserAction: false,
                                 allowsInlineMediaPlayback: true,
+                                // Android: WebView renderer process killed (memory pressure)
+                                onRenderProcessGone: () => {
+                                    console.warn('[VideoPlayer] Android WebView renderer gone, remounting');
+                                    remountPlayer();
+                                },
+                                // iOS: WKWebView content process terminated (memory pressure)
+                                onContentProcessDidTerminate: () => {
+                                    console.warn('[VideoPlayer] iOS WKWebView process terminated, remounting');
+                                    remountPlayer();
+                                },
                             }}
                         />
                     ) : embedUrl ? (
