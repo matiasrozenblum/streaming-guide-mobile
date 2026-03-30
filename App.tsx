@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
@@ -77,7 +78,7 @@ export default function App() {
   });
 
   if (!fontsLoaded) {
-    return null;
+    return <View style={{ flex: 1, backgroundColor: '#0f172a' }} />;
   }
 
   return (
