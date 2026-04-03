@@ -110,7 +110,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: "#0f172a",
         newArchEnabled: true,
         splash: {
-            "image": getAppIcon(), // Optional: also change splash if desired
+            "image": "./assets/splash-icon.png",
             "resizeMode": "contain",
             "backgroundColor": "#0f172a"
         },

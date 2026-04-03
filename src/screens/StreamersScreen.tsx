@@ -55,7 +55,19 @@ export const StreamersScreen = () => {
 
     const handleToggleSubscription = async (streamer: Streamer) => {
         if (!session?.accessToken) {
-            showLogin();
+            showLogin(async (accessToken) => {
+                const permissionGranted = await requestNotificationPermission();
+                if (!permissionGranted) return;
+                await StreamerService.subscribe(streamer.id, accessToken);
+                setStreamers(prev => prev.map(s =>
+                    s.id === streamer.id ? { ...s, is_subscribed: true } : s
+                ));
+                trackEvent('streamer_subscribe', {
+                    streamer_id: streamer.id.toString(),
+                    streamer_name: streamer.name,
+                    origin: 'post_auth',
+                });
+            });
             return;
         }
 

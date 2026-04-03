@@ -40,7 +40,17 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
     const handleBellPress = async () => {
         if (!isAuthenticated || !session?.accessToken) {
             setModalVisible(false);
-            showLogin();
+            showLogin(async (accessToken) => {
+                const permissionGranted = await requestNotificationPermission();
+                if (!permissionGranted) return;
+                await subscriptionsApi.subscribe(schedule.program.id, accessToken);
+                setIsSubscribed(true);
+                trackEvent('program_subscribe', {
+                    program_id: schedule.program.id.toString(),
+                    program_name: schedule.program.name,
+                    channel_name: schedule.program.channel?.name || 'unknown',
+                });
+            });
             return;
         }
 
@@ -462,5 +472,6 @@ const styles = StyleSheet.create({
     },
     iconButton: {
         padding: 8,
+        marginLeft: 'auto',
     },
 });

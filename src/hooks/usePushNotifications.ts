@@ -23,10 +23,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
     if (Platform.OS === 'web' || !Device.isDevice) return false;
 
     // Check current status first (no dialog)
-    const currentStatus = await messaging().hasPermission();
-    const alreadyEnabled =
-        currentStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        currentStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    const { status: currentStatus } = await Notifications.getPermissionsAsync();
+    const alreadyEnabled = currentStatus === 'granted';
 
     if (alreadyEnabled && fcmToken) {
         return true;
@@ -34,10 +32,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
     // Request permission (shows system dialog on Android 13+ and iOS)
     console.log('[Push] Requesting notification permission...');
-    const authStatus = await messaging().requestPermission();
-    const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    const { status } = await Notifications.requestPermissionsAsync();
+    const enabled = status === 'granted';
 
     if (!enabled) {
         console.log('[Push] Permission denied by user');
@@ -91,21 +87,20 @@ export function usePushNotifications() {
             }
 
             // Check if permission was already granted
-            const currentStatus = await messaging().hasPermission();
-            let enabled =
-                currentStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                currentStatus === messaging.AuthorizationStatus.PROVISIONAL;
+            const { status: currentStatus } = await Notifications.getPermissionsAsync();
+            let enabled = currentStatus === 'granted';
 
             // If not yet granted, check if this is the first app launch — prompt once
             if (!enabled) {
                 const alreadyPrompted = await AsyncStorage.getItem(PUSH_PROMPT_SHOWN_KEY);
                 if (!alreadyPrompted) {
                     console.log('[Push] First launch — requesting notification permission...');
+                    // Use expo-notifications which is more reliable on Android 13+ with Expo
+                    const { status } = await Notifications.requestPermissionsAsync();
+                    enabled = status === 'granted';
+                    // Only mark as prompted after the dialog was actually shown
                     await AsyncStorage.setItem(PUSH_PROMPT_SHOWN_KEY, 'true');
-                    const authStatus = await messaging().requestPermission();
-                    enabled =
-                        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+                    console.log('[Push] Permission result:', status);
                 } else {
                     console.log('[Push] Permission not granted (will request when user subscribes)');
                 }

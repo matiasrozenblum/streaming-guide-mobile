@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import { userApi, authApi } from '../services/api';
+import { DeviceService } from '../services/device.service';
 import { trackEvent, identifyUser, resetAnalytics, setAnalyticsAdminMode } from '../lib/analytics';
 
 export interface User {
@@ -152,6 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      // Unregister FCM so this device stops receiving push notifications
+      await DeviceService.unregisterFCM();
+
       // Clear tokens from secure storage
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);

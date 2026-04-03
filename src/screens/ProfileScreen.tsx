@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Card, Button, TextInput, IconButton, HelperText } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform, Keyboard, Modal } from 'react-native';
+import { Text, Card, Button, TextInput, IconButton, HelperText, Menu, TouchableRipple, useTheme, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { navigate } from '../navigation/NavigationService';
 import dayjs from 'dayjs';
 
 type EditSection = 'none' | 'personal' | 'email' | 'password';
@@ -17,8 +18,8 @@ const genderOptions = [
 ];
 
 export const ProfileScreen = () => {
-    const navigation = useNavigation();
     const { session, logout, updateUser } = useAuth();
+    const theme = useTheme();
     const [editSection, setEditSection] = useState<EditSection>('none');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -26,19 +27,22 @@ export const ProfileScreen = () => {
     // Personal data
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [birthDate, setBirthDate] = useState('');
+    const [birthDate, setBirthDate] = useState<Date | null>(null);
     const [gender, setGender] = useState('');
 
     // Password
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [genderMenuVisible, setGenderMenuVisible] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [snackbar, setSnackbar] = useState('');
 
     useEffect(() => {
         if (session?.user) {
             setFirstName(session.user.firstName || '');
             setLastName(session.user.lastName || '');
-            setBirthDate(session.user.birthDate ? session.user.birthDate.slice(0, 10) : '');
+            setBirthDate(session.user.birthDate ? new Date(session.user.birthDate + 'T12:00:00') : null);
             setGender(session.user.gender || '');
         }
     }, [session]);
@@ -55,6 +59,30 @@ export const ProfileScreen = () => {
         );
     }
 
+    const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+        }
+        if (selectedDate) {
+            // Normalize to local noon to prevent timezone offset from shifting the date
+            const normalized = new Date(
+                selectedDate.getFullYear(),
+                selectedDate.getMonth(),
+                selectedDate.getDate(),
+                12, 0, 0
+            );
+            setBirthDate(normalized);
+            if (Platform.OS === 'ios') {
+                setShowDatePicker(false);
+            }
+        }
+    };
+
+    const handleOpenDatePicker = () => {
+        Keyboard.dismiss();
+        setTimeout(() => setShowDatePicker(true), 100);
+    };
+
     const handleSavePersonal = async () => {
         if (!firstName || !lastName) {
             setError('Por favor completa nombre y apellido');
@@ -64,16 +92,18 @@ export const ProfileScreen = () => {
         setLoading(true);
         setError('');
 
+        const birthDateStr = birthDate ? dayjs(birthDate).format('YYYY-MM-DD') : undefined;
+
         try {
             await userApi.updateUser(
                 session.user.id,
-                { firstName, lastName, birthDate: birthDate || undefined, gender: gender || undefined },
+                { firstName, lastName, birthDate: birthDateStr, gender: gender || undefined },
                 session.accessToken
             );
 
-            updateUser({ firstName, lastName, birthDate, gender });
+            updateUser({ firstName, lastName, birthDate: birthDateStr ?? '', gender });
             setEditSection('none');
-            Alert.alert('Éxito', 'Datos actualizados correctamente');
+            setSnackbar('Datos actualizados correctamente');
         } catch (err) {
             setError('Error al actualizar los datos');
         } finally {
@@ -105,7 +135,7 @@ export const ProfileScreen = () => {
             setEditSection('none');
             setNewPassword('');
             setConfirmPassword('');
-            Alert.alert('Éxito', 'Contraseña actualizada correctamente');
+            setSnackbar('Contraseña actualizada correctamente');
         } catch (err) {
             setError('Error al actualizar la contraseña');
         } finally {
@@ -126,6 +156,7 @@ export const ProfileScreen = () => {
                         try {
                             await userApi.deleteUser(session.user.id, session.accessToken);
                             await logout();
+                            navigate('MainTabs', {});
                         } catch (err) {
                             Alert.alert('Error', 'No se pudo cancelar la cuenta');
                         }
@@ -140,20 +171,6 @@ export const ProfileScreen = () => {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-                <View style={styles.header}>
-                    <Text variant="headlineMedium" style={styles.title}>
-                        Mi cuenta
-                    </Text>
-                    <Button
-                        mode="outlined"
-                        onPress={() => navigation.goBack()}
-                        icon="arrow-left"
-                        style={styles.backButton}
-                    >
-                        Volver
-                    </Button>
-                </View>
-
                 {/* Personal Data Section */}
                 <Card style={styles.card}>
                     <Card.Title
@@ -210,6 +227,91 @@ export const ProfileScreen = () => {
                                     style={styles.input}
                                     disabled={loading}
                                 />
+                                <TouchableOpacity
+                                    onPress={handleOpenDatePicker}
+                                    disabled={loading}
+                                    activeOpacity={0.7}
+                                >
+                                    <TextInput
+                                        label="Fecha de nacimiento"
+                                        value={birthDate ? dayjs(birthDate).format('DD/MM/YYYY') : ''}
+                                        mode="outlined"
+                                        style={styles.input}
+                                        editable={false}
+                                        pointerEvents="none"
+                                        right={<TextInput.Icon icon="calendar" onPress={handleOpenDatePicker} />}
+                                    />
+                                </TouchableOpacity>
+
+                                {showDatePicker && Platform.OS === 'ios' && (
+                                    <Modal transparent visible animationType="fade">
+                                        <TouchableOpacity
+                                            style={styles.iosModalOverlay}
+                                            activeOpacity={1}
+                                            onPress={() => setShowDatePicker(false)}
+                                        >
+                                            <TouchableOpacity
+                                                style={[styles.iosPickerContainer, { backgroundColor: theme.colors.surface }]}
+                                                activeOpacity={1}
+                                            >
+                                                <DateTimePicker
+                                                    value={birthDate || new Date(2000, 0, 1)}
+                                                    mode="date"
+                                                    display="inline"
+                                                    onChange={handleDateChange}
+                                                    maximumDate={new Date()}
+                                                    minimumDate={new Date(1920, 0, 1)}
+                                                    textColor={theme.colors.onSurface}
+                                                    accentColor={theme.colors.primary}
+                                                />
+                                            </TouchableOpacity>
+                                        </TouchableOpacity>
+                                    </Modal>
+                                )}
+                                {showDatePicker && Platform.OS === 'android' && (
+                                    <DateTimePicker
+                                        value={birthDate || new Date(2000, 0, 1)}
+                                        mode="date"
+                                        display="default"
+                                        onChange={handleDateChange}
+                                        maximumDate={new Date()}
+                                        minimumDate={new Date(1920, 0, 1)}
+                                    />
+                                )}
+
+                                <Menu
+                                    visible={genderMenuVisible}
+                                    onDismiss={() => setGenderMenuVisible(false)}
+                                    anchor={
+                                        <TouchableRipple
+                                            onPress={() => !loading && setGenderMenuVisible(true)}
+                                            style={styles.genderAnchor}
+                                        >
+                                            <TextInput
+                                                label="Género"
+                                                value={genderOptions.find(g => g.value === gender)?.label ?? ''}
+                                                mode="outlined"
+                                                style={styles.input}
+                                                editable={false}
+                                                pointerEvents="none"
+                                                right={<TextInput.Icon icon="chevron-down" />}
+                                            />
+                                        </TouchableRipple>
+                                    }
+                                    contentStyle={styles.menuContent}
+                                >
+                                    {genderOptions.map(opt => (
+                                        <Menu.Item
+                                            key={opt.value}
+                                            title={opt.label}
+                                            titleStyle={gender === opt.value ? styles.menuItemSelected : styles.menuItemTitle}
+                                            onPress={() => {
+                                                setGender(opt.value);
+                                                setGenderMenuVisible(false);
+                                            }}
+                                        />
+                                    ))}
+                                </Menu>
                                 {error ? <HelperText type="error">{error}</HelperText> : null}
                                 <View style={styles.buttonRow}>
                                     <Button
@@ -270,6 +372,7 @@ export const ProfileScreen = () => {
                                     mode="outlined"
                                     style={styles.input}
                                     disabled={loading}
+                                    autoCapitalize="none"
                                     right={
                                         <TextInput.Icon
                                             icon={showPassword ? 'eye-off' : 'eye'}
@@ -285,6 +388,7 @@ export const ProfileScreen = () => {
                                     mode="outlined"
                                     style={styles.input}
                                     disabled={loading}
+                                    autoCapitalize="none"
                                 />
                                 {error ? <HelperText type="error">{error}</HelperText> : null}
                                 <View style={styles.buttonRow}>
@@ -321,6 +425,15 @@ export const ProfileScreen = () => {
                     Cancelar mi usuario
                 </Button>
             </ScrollView>
+            <Snackbar
+                visible={!!snackbar}
+                onDismiss={() => setSnackbar('')}
+                duration={3000}
+                style={styles.snackbar}
+                action={{ label: 'OK', onPress: () => setSnackbar('') }}
+            >
+                {snackbar}
+            </Snackbar>
         </SafeAreaView>
     );
 };
@@ -335,19 +448,6 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 16,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    title: {
-        color: '#f3f4f6',
-        fontWeight: 'bold',
-    },
-    backButton: {
-        borderColor: 'rgba(255,255,255,0.2)',
     },
     card: {
         marginBottom: 16,
@@ -365,6 +465,31 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginBottom: 4,
     },
+    genderAnchor: {
+        marginBottom: 12,
+    },
+    iosModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iosPickerContainer: {
+        borderRadius: 14,
+        padding: 16,
+        width: '90%',
+        maxWidth: 400,
+    },
+    menuContent: {
+        backgroundColor: '#1e293b',
+    },
+    menuItemTitle: {
+        color: '#f1f5f9',
+    },
+    menuItemSelected: {
+        color: '#3b82f6',
+        fontWeight: 'bold',
+    },
     input: {
         marginBottom: 12,
     },
@@ -379,6 +504,9 @@ const styles = StyleSheet.create({
     deleteButton: {
         marginTop: 16,
         marginBottom: 32,
+    },
+    snackbar: {
+        backgroundColor: '#1e293b',
     },
     emptyContainer: {
         flex: 1,
