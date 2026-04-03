@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, StatusBar as RNStatusBar, Platform, ScrollView, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
@@ -127,12 +128,17 @@ export const HomeScreen = () => {
                 })
                 .catch(err => console.warn('[Perf] Categories fetch failed:', err));
 
-            // Holiday (independent)
+            // Holiday (independent) — only show once per day
             if (!isSeasonActive) {
                 appApi.getHoliday()
-                    .then(data => {
+                    .then(async data => {
                         console.log(`[Perf] getHoliday: ${Date.now() - t0}ms, isHoliday: ${data.isHoliday}`);
-                        setShowHoliday(data.isHoliday);
+                        if (!data.isHoliday) return;
+                        const today = dayjs().format('YYYY-MM-DD');
+                        const seen = await AsyncStorage.getItem('@holiday_dialog_seen');
+                        if (seen !== today) {
+                            setShowHoliday(true);
+                        }
                     })
                     .catch(err => console.warn('[Perf] Holiday fetch failed:', err));
             }
@@ -229,7 +235,13 @@ export const HomeScreen = () => {
                     <SeasonalDialog visible={showSeasonal} onClose={() => setShowSeasonal(false)} />
                 )}
                 {!isSeasonActive && showHoliday && (
-                    <HolidayDialog visible={showHoliday} onClose={() => setShowHoliday(false)} />
+                    <HolidayDialog
+                        visible={showHoliday}
+                        onClose={() => {
+                            setShowHoliday(false);
+                            AsyncStorage.setItem('@holiday_dialog_seen', dayjs().format('YYYY-MM-DD'));
+                        }}
+                    />
                 )}
                 <Header />
                 <ScheduleGrid

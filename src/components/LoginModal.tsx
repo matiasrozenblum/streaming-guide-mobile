@@ -5,6 +5,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
+import { useLoginModal } from '../context/LoginModalContext';
 import { authApi } from '../services/api';
 import { trackEvent } from '../lib/analytics';
 
@@ -28,6 +29,7 @@ const ALL_STEPS: Record<'new' | 'existing', StepKey[]> = {
 
 export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const { login } = useAuth();
+  const { pendingAction, clearPendingAction } = useLoginModal();
   const theme = useTheme();
 
   // State
@@ -71,6 +73,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     setGender('');
     setError('');
     setLoading(false);
+    clearPendingAction();
   };
 
   const currentSteps = isUserExisting ? ALL_STEPS.existing : ALL_STEPS.new;
@@ -88,6 +91,22 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     if (step === 'profile') return 'Completa tu perfil';
     if (step === 'password') return 'Creá tu contraseña'; // or 'Nueva contraseña'
     return '';
+  };
+
+  // --- Auth success helper ---
+  // Called after every successful login/register. Executes any pending action
+  // (e.g. subscribe to a program) that was queued before the user authenticated.
+  const handleAuthSuccess = async (accessToken: string, refreshToken: string) => {
+    await login(accessToken, refreshToken);
+    if (pendingAction) {
+      try {
+        await pendingAction(accessToken);
+      } catch (err) {
+        console.error('[LoginModal] pendingAction failed:', err);
+      }
+      clearPendingAction();
+    }
+    handleClose();
   };
 
   // --- Handlers ---
@@ -141,12 +160,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         setRegistrationToken(response.registration_token);
         setStep('profile');
       } else {
-        // Existing user logging in via OTP (e.g. forgot password flow or magic link logic if supported, but here it's typically Verify -> Token)
-        // Wait, existing LoginModal logic for code submit:
-        // if (response.isNew) -> profile
-        // else -> login( tokens )
-        await login(response.access_token, response.refresh_token);
-        handleClose();
+        await handleAuthSuccess(response.access_token, response.refresh_token);
       }
     } catch (err) {
       setError('Código inválido o expirado.');
@@ -212,8 +226,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         setStep('profile');
         setPhase('flow');
       } else {
-        await login(response.access_token, response.refresh_token);
-        handleClose();
+        await handleAuthSuccess(response.access_token, response.refresh_token);
       }
 
     } catch (e: any) {
@@ -264,8 +277,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         setStep('profile');
         setPhase('flow');
       } else {
-        await login(response.access_token, response.refresh_token);
-        handleClose();
+        await handleAuthSuccess(response.access_token, response.refresh_token);
       }
 
     } catch (e: any) {
@@ -306,8 +318,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
           gender: g
         });
 
-        await login(response.access_token, response.refresh_token);
-        handleClose();
+        await handleAuthSuccess(response.access_token, response.refresh_token);
       } catch (err) {
         setError('Error al completar el perfil.');
       } finally {
@@ -338,9 +349,8 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         gender
       });
 
-      await login(response.access_token, response.refresh_token);
       trackEvent('signup_success', { method: 'traditional' });
-      handleClose();
+      await handleAuthSuccess(response.access_token, response.refresh_token);
     } catch (err: any) {
       setError('Error al registrarse.');
       trackEvent('signup_error', { error: err.message || 'unknown', method: 'traditional' });
@@ -354,8 +364,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     setError('');
     try {
       const response = await authApi.login(email, pw);
-      await login(response.access_token, response.refresh_token);
-      handleClose();
+      await handleAuthSuccess(response.access_token, response.refresh_token);
     } catch (err: any) {
       setError('Credenciales inválidas');
       trackEvent('login_error', { error: err.message || 'invalid_credentials', method: 'traditional' });

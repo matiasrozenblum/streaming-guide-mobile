@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
+import { navigate } from '../navigation/NavigationService';
 import dayjs from 'dayjs';
 
 type EditSection = 'none' | 'personal' | 'email' | 'password';
@@ -155,6 +156,7 @@ export const ProfileScreen = () => {
                         try {
                             await userApi.deleteUser(session.user.id, session.accessToken);
                             await logout();
+                            navigate('MainTabs', {});
                         } catch (err) {
                             Alert.alert('Error', 'No se pudo cancelar la cuenta');
                         }

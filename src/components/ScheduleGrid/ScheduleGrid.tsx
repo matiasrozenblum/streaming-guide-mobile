@@ -216,7 +216,9 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                             refreshing={!!refreshing}
                             onRefresh={onRefresh}
                             tintColor={theme.colors.primary}
-                            progressViewOffset={200}
+                            colors={[theme.colors.primary]}
+                            progressBackgroundColor={theme.colors.surface}
+                            progressViewOffset={0}
                         />
                     ) : undefined
                 }
