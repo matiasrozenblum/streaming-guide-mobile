@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ChannelWithSchedules } from '../../types/channel';
+import { Schedule } from '../../types/schedule';
 import { ProgramBlock } from './ProgramBlock';
 import { getColorForChannel } from '../../utils/colors';
 import { layout } from '../../theme/tokens';
@@ -13,8 +14,37 @@ interface Props {
     totalWidth: number;
 }
 
+const parseTimeToMinutes = (timeStr: string): number => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+};
+
+const getOverlapInfo = (schedule: Schedule, schedules: Schedule[]) => {
+    const start = parseTimeToMinutes(schedule.start_time);
+    let end = parseTimeToMinutes(schedule.end_time);
+    if (end < start) end += 24 * 60;
+
+    const overlapping = schedules.filter(other => {
+        const otherStart = parseTimeToMinutes(other.start_time);
+        let otherEnd = parseTimeToMinutes(other.end_time);
+        if (otherEnd < otherStart) otherEnd += 24 * 60;
+        return start < otherEnd && otherStart < end;
+    });
+
+    overlapping.sort((a, b) => {
+        const diff = parseTimeToMinutes(a.start_time) - parseTimeToMinutes(b.start_time);
+        return diff !== 0 ? diff : a.id - b.id;
+    });
+
+    return {
+        multipleStreamsIndex: overlapping.findIndex(s => s.id === schedule.id),
+        totalMultipleStreams: overlapping.length,
+    };
+};
+
 export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWidth }: Props) => {
     const channelColor = getColorForChannel(index, 'dark');
+    const schedules = channel.schedules;
 
     return (
         <View style={[styles.row, { width: totalWidth }]}>
@@ -26,14 +56,19 @@ export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWi
 
             {/* Programs Track */}
             <View style={[styles.programsTrack, { width: totalWidth }]}>
-                {channel.schedules.map((schedule) => (
-                    <ProgramBlock
-                        key={schedule.id}
-                        schedule={schedule}
-                        pixelsPerMinute={pixelsPerMinute}
-                        channelColor={channelColor}
-                    />
-                ))}
+                {schedules.map((schedule) => {
+                    const { multipleStreamsIndex, totalMultipleStreams } = getOverlapInfo(schedule, schedules);
+                    return (
+                        <ProgramBlock
+                            key={schedule.id}
+                            schedule={schedule}
+                            pixelsPerMinute={pixelsPerMinute}
+                            channelColor={channelColor}
+                            multipleStreamsIndex={multipleStreamsIndex}
+                            totalMultipleStreams={totalMultipleStreams}
+                        />
+                    );
+                })}
             </View>
         </View>
     );

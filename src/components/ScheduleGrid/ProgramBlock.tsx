@@ -20,9 +20,11 @@ interface Props {
     schedule: Schedule;
     pixelsPerMinute: number;
     channelColor?: string | null;
+    multipleStreamsIndex?: number;
+    totalMultipleStreams?: number;
 }
 
-export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props) => {
+export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1 }: Props) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(schedule.subscribed);
     const [bellLoading, setBellLoading] = useState(false);
@@ -162,6 +164,10 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
     const backgroundColor = overrideStyles ? overrideStyles.bg : alpha(baseColor, bgOpacity);
     const borderColor = overrideStyles ? overrideStyles.border : (isPast ? alpha(baseColor, 0.3) : baseColor);
 
+    // Overlap stacking: divide row height equally among overlapping programs
+    const blockHeight = totalMultipleStreams > 1 ? `${100 / totalMultipleStreams}%` as const : '100%' as const;
+    const blockTop = totalMultipleStreams > 1 ? `${multipleStreamsIndex * (100 / totalMultipleStreams)}%` as const : '0%' as const;
+
     return (
         <>
             <TouchableOpacity
@@ -170,6 +176,8 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
                     {
                         left,
                         width,
+                        top: blockTop,
+                        height: blockHeight,
                         backgroundColor,
                         borderColor: borderColor,
                         borderWidth: 1,
@@ -321,7 +329,6 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor }: Props)
 const styles = StyleSheet.create({
     block: {
         position: 'absolute',
-        height: '100%',
         borderRadius: borderRadius.sm, // 2px
         overflow: 'hidden',
     },

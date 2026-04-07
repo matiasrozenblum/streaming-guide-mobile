@@ -207,7 +207,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
-                bounces={false}
+                bounces={Platform.OS === 'ios' && !!onRefresh}
                 stickyHeaderIndices={[1]}
                 contentContainerStyle={{ paddingBottom: 0 }}
                 refreshControl={

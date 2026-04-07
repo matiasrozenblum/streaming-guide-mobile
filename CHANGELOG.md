@@ -15,6 +15,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.4] - 2026-04-06
+
+### Fixed
+- Overlapping programs in the same channel row now stack vertically instead of
+  rendering on top of each other — matches the web layout (equal-height sub-rows,
+  sorted by start time)
+- Pull-to-refresh broken on iOS — `bounces={false}` was silently suppressing the
+  pull gesture; now enables bouncing on iOS when a refresh handler is present
+
+---
+
 ## [1.0.3] - 2026-04-03
 
 ### Added
