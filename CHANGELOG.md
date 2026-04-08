@@ -15,6 +15,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.5] - 2026-04-07
+
+### Fixed
+- Overlapping programs in the same channel row now stack vertically instead of
+  rendering on top of each other — matches the web layout (equal-height sub-rows,
+  sorted by start time)
+- Pull-to-refresh broken on iOS after 1.0.3 — bounces were disabled which suppressed
+  the pull gesture; now enables bouncing on iOS when a refresh handler is present
+- Programs longer than 6 hours are now split into equal-width segments so the title
+  is always visible within the viewport — matches web mobile behavior (6h threshold)
+- Past/future/live styling for program blocks and time header when viewing non-today days
+- Android text clipping in overlapping (stacked) program blocks
+- Duplicate schedule IDs when navigating to non-today days — mergeTodayIntoWeek
+  was including multi-day schedules from the today/v2 endpoint causing React key conflicts
+
+---
+
 ## [1.0.4] - 2026-04-06
 
 ### Fixed
@@ -23,6 +40,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   sorted by start time)
 - Pull-to-refresh broken on iOS — `bounces={false}` was silently suppressing the
   pull gesture; now enables bouncing on iOS when a refresh handler is present
+- Programs longer than 6 hours are now split into equal-width segments that each
+  show the program title, matching the web layout and ensuring titles are always
+  visible within the viewport
+- Fixed multi stream program block UI
+- Fixed past, present and future styles
+
 
 ---
 

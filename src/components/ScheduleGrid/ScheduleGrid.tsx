@@ -35,10 +35,11 @@ interface ScheduleGridProps {
     refreshing?: boolean;
     selectedCategoryId?: number | null;
     isViewingToday?: boolean;
+    isPastDay?: boolean;
     onResetToToday?: () => void;
 }
 
-export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId, isViewingToday, onResetToToday }: ScheduleGridProps) => {
+export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavContent, onRefresh, refreshing, selectedCategoryId, isViewingToday, isPastDay, onResetToToday }: ScheduleGridProps) => {
     const theme = getTheme('dark');
     const insets = useSafeAreaInsets();
 
@@ -258,6 +259,8 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                                 <TimeHeaderMarkers
                                     hourWidth={HOUR_WIDTH}
                                     totalWidth={TOTAL_WIDTH}
+                                    isViewingToday={isViewingToday}
+                                    isPastDay={isPastDay}
                                 />
                             </Animated.ScrollView>
                         </View>
@@ -296,6 +299,8 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                                         pixelsPerMinute={PIXELS_PER_MINUTE}
                                         nowOffset={nowOffset}
                                         totalWidth={TOTAL_WIDTH}
+                                        isViewingToday={isViewingToday}
+                                        isPastDay={isPastDay}
                                     />
                                 ))}
                             </View>

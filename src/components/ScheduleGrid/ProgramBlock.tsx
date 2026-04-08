@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLoginModal } from '../../context/LoginModalContext';
 import { subscriptionsApi } from '../../services/api';
 import { requestNotificationPermission } from '../../hooks/usePushNotifications';
-import { alpha, borderRadius, fontSize, fontWeight, spacing } from '../../theme/tokens';
+import { alpha, borderRadius, fontSize, fontWeight, spacing, layout } from '../../theme/tokens';
 import { trackEvent } from '../../lib/analytics';
 import { getTheme } from '../../theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,9 +22,11 @@ interface Props {
     channelColor?: string | null;
     multipleStreamsIndex?: number;
     totalMultipleStreams?: number;
+    isViewingToday?: boolean;
+    isPastDay?: boolean;
 }
 
-export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1 }: Props) => {
+export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1, isViewingToday = true, isPastDay = false }: Props) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(schedule.subscribed);
     const [bellLoading, setBellLoading] = useState(false);
@@ -121,13 +123,15 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
 
     const now = dayjs();
     const currentMinutes = now.hour() * 60 + now.minute();
-    const isPast = endMinutes < currentMinutes;
+    // isPast: past day → all past; today → time-based; future day → none past
+    const isPast = isViewingToday ? endMinutes < currentMinutes : isPastDay;
+    const isLive = isViewingToday && schedule.program.is_live;
 
     const baseColor = channelColor || '#1f2937';
 
     // Background opacity logic
     let bgOpacity = 0.15; // isNormal
-    if (schedule.program.is_live) bgOpacity = 0.3;
+    if (isLive) bgOpacity = 0.3;
     else if (isPast) bgOpacity = 0.05;
 
     const styleOverride = schedule.program.style_override;
@@ -164,9 +168,11 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
     const backgroundColor = overrideStyles ? overrideStyles.bg : alpha(baseColor, bgOpacity);
     const borderColor = overrideStyles ? overrideStyles.border : (isPast ? alpha(baseColor, 0.3) : baseColor);
 
-    // Overlap stacking: divide row height equally among overlapping programs
-    const blockHeight = totalMultipleStreams > 1 ? `${100 / totalMultipleStreams}%` as const : '100%' as const;
-    const blockTop = totalMultipleStreams > 1 ? `${multipleStreamsIndex * (100 / totalMultipleStreams)}%` as const : '0%' as const;
+    // Overlap stacking: use pixel values (not percentages) so that flex children
+    // (content with justifyContent:'center') resolve height correctly on both iOS and Android.
+    const ROW_H = layout.ROW_HEIGHT_MOBILE;
+    const blockHeight = totalMultipleStreams > 1 ? ROW_H / totalMultipleStreams : '100%' as const;
+    const blockTop = totalMultipleStreams > 1 ? multipleStreamsIndex * (ROW_H / totalMultipleStreams) : 0;
 
     return (
         <>
@@ -200,20 +206,29 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                     ]} />
                 )}
 
-                {/* LIVE Badge */}
-                {schedule.program.is_live && (
+                {/* LIVE Badge — only when actually live today */}
+                {isLive && (
                     <View style={styles.liveBadge}>
                         <Text style={styles.liveText}>LIVE</Text>
                     </View>
                 )}
 
-                <View style={styles.content}>
-                    <Text style={[styles.title, { color: overrideStyles ? overrideStyles.textColor : baseColor }]} numberOfLines={2}>
+                <View style={[styles.content, totalMultipleStreams > 1 && styles.contentCompact]}>
+                    <Text
+                        style={[styles.title, { color: overrideStyles ? overrideStyles.textColor : baseColor }]}
+                        numberOfLines={totalMultipleStreams > 1 ? 1 : 2}
+                        includeFontPadding={false}
+                    >
                         {schedule.program.name.toUpperCase()}
                     </Text>
 
-                    {schedule.program.panelists && schedule.program.panelists.length > 0 && width > 120 && (
-                        <Text style={[styles.panelists, { color: overrideStyles ? 'rgba(255,255,255,0.8)' : alpha(baseColor, 0.8) }]} numberOfLines={2}>
+                    {/* Hide panelists when overlapping — not enough space in sub-row */}
+                    {totalMultipleStreams === 1 && schedule.program.panelists && schedule.program.panelists.length > 0 && width > 120 && (
+                        <Text
+                            style={[styles.panelists, { color: overrideStyles ? 'rgba(255,255,255,0.8)' : alpha(baseColor, 0.8) }]}
+                            numberOfLines={2}
+                            includeFontPadding={false}
+                        >
                             {schedule.program.panelists.map(p => p.name).join(', ')}
                         </Text>
                     )}
@@ -334,15 +349,20 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: spacing.sm, // 8px
-        height: '100%',
+        flex: 1,
         flexDirection: 'column',
         justifyContent: 'center', // Vertically center text to match web
         alignItems: 'center',
+    },
+    // Overlapping blocks are 30px tall — reduce vertical padding so text isn't clipped
+    contentCompact: {
+        paddingVertical: 2,
     },
     title: {
         fontSize: fontSize.xs, // 12px
         fontWeight: fontWeight.bold, // 700 - match web
         textAlign: 'center',
+        lineHeight: 14, // explicit line height prevents Android from using a larger default
     },
     panelists: {
         fontSize: 10, // 0.65rem ≈ 10.4px, matching web
