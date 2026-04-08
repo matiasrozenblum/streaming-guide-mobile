@@ -6,9 +6,11 @@ import { getTheme } from '../../theme';
 interface Props {
     hourWidth: number;
     totalWidth: number;
+    isViewingToday?: boolean;
+    isPastDay?: boolean;
 }
 
-export const TimeHeaderMarkers = ({ hourWidth, totalWidth }: Props) => {
+export const TimeHeaderMarkers = ({ hourWidth, totalWidth, isViewingToday = true, isPastDay = false }: Props) => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const theme = getTheme('dark');
     const [currentHour, setCurrentHour] = useState(new Date().getHours());
@@ -23,8 +25,9 @@ export const TimeHeaderMarkers = ({ hourWidth, totalWidth }: Props) => {
     return (
         <View style={[styles.container, { width: totalWidth }]}>
             {hours.map((hour) => {
-                const isPast = hour < currentHour;
-                const isCurrent = hour === currentHour;
+                // Past day: all hours dimmed. Future day: all normal. Today: time-based.
+                const isPast = isViewingToday ? hour < currentHour : isPastDay;
+                const isCurrent = isViewingToday && hour === currentHour;
 
                 return (
                     <View key={hour} style={[

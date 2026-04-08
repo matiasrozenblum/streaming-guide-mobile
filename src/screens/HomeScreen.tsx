@@ -43,10 +43,14 @@ function mergeTodayIntoWeek(
         if (!todayCh) return weekCh;
 
         // Replace today's schedules with fresh data, keep other days
+        // Filter to only today's day — the v2 endpoint returns multi-day schedules
+        // (e.g. virtual special events spanning the week), so we must not include
+        // non-today schedules from the today response or they duplicate the week data.
+        const todayOnlySchedules = todayCh.schedules.filter(s => s.day_of_week === todayDay);
         const otherDaySchedules = weekCh.schedules.filter(s => s.day_of_week !== todayDay);
         return {
             ...weekCh,
-            schedules: [...otherDaySchedules, ...todayCh.schedules],
+            schedules: [...otherDaySchedules, ...todayOnlySchedules],
         };
     });
 
@@ -175,6 +179,12 @@ export const HomeScreen = () => {
     const selectedDayName = selectedDate || todayName;
     const isViewingToday = !selectedDate || selectedDate === todayName;
 
+    // Determine if selected day is before or after today within the current week (Mon–Sun)
+    const weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const todayWeekIndex = weekDays.indexOf(todayName);
+    const selectedWeekIndex = weekDays.indexOf(selectedDayName);
+    const isPastDay = !isViewingToday && selectedWeekIndex !== -1 && todayWeekIndex !== -1 && selectedWeekIndex < todayWeekIndex;
+
     const filteredByDay: ChannelWithSchedules[] = weekChannels
         .map(ch => ({
             ...ch,
@@ -253,6 +263,7 @@ export const HomeScreen = () => {
                     refreshing={refreshing}
                     selectedCategoryId={selectedCategory?.id ?? null}
                     isViewingToday={isViewingToday}
+                    isPastDay={isPastDay}
                     onResetToToday={onResetToToday}
                 />
             </SafeAreaView>

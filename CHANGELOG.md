@@ -23,6 +23,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   sorted by start time)
 - Pull-to-refresh broken on iOS — `bounces={false}` was silently suppressing the
   pull gesture; now enables bouncing on iOS when a refresh handler is present
+- Programs longer than 6 hours are now split into equal-width segments that each
+  show the program title, matching the web layout and ensuring titles are always
+  visible within the viewport
+- Fixed multi stream program block UI
+- Fixed past, present and future styles
+
 
 ---
 
