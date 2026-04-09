@@ -192,8 +192,10 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                 activeOpacity={0.7}
                 onPress={() => setModalVisible(true)}
             >
-                {/* Style override band (Boca/River) */}
-                {overrideStyles && (
+                {/* Style override indicator (Boca/River):
+                    - Full band when there is enough vertical space (single stream)
+                    - Compact dot when in overlapping/stacked mode */}
+                {overrideStyles && totalMultipleStreams === 1 && (
                     <View style={[
                         styles.overrideBand,
                         {
@@ -204,6 +206,9 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                             transform: [{ rotate: overrideStyles.bandRotation }],
                         }
                     ]} />
+                )}
+                {overrideStyles && totalMultipleStreams > 1 && (
+                    <View style={styles.overrideDot} />
                 )}
 
                 {/* LIVE Badge — only when actually live today */}
