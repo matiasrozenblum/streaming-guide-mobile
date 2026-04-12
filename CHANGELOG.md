@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Datadog RUM integration (`@datadog/mobile-react-native`): dual-tracks all existing PostHog events (screen views, custom actions, user identification) alongside PostHog and Firebase Analytics; enriches every action with user context (id, gender, age, age_group, role) matching the web frontend behaviour
+
 ### Changed
 ### Fixed
 ### Removed

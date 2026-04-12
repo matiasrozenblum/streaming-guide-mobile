@@ -21,6 +21,7 @@
     "build:ios:sim": "expo run:ios --configuration Release"
   },
   "dependencies": {
+    "@datadog/mobile-react-native": "^3.2.0",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo/vector-icons": "^15.0.3",

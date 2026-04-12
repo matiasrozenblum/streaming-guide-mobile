@@ -141,6 +141,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             apiUrl: getApiUrl(),
             posthogApiKey: "phc_ioX3gwDuENT8MoUWSacARsCFVE6bSbKaEh5u7Mie5oK",
             posthogHost: "https://app.posthog.com",
+            datadogAppId: process.env.DATADOG_APP_ID ?? '',
+            datadogClientToken: process.env.DATADOG_CLIENT_TOKEN ?? '',
+            datadogEnv: IS_STAGING || IS_DEV ? 'staging' : 'production',
             googleClientIds: {
                 web: IS_STAGING
                     ? "699504194906-v8uledkb0e19qbkav7t8b9hcae3cb6cm.apps.googleusercontent.com"
