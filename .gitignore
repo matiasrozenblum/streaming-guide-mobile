@@ -42,3 +42,6 @@ yarn-error.*
 
 # Claude Code (local settings, not shared)
 .claude/settings.local.json
+
+# Story working memory (multi-session tasks)
+STORY.md

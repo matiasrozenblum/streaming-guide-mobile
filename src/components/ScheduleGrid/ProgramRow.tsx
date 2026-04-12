@@ -54,27 +54,62 @@ const splitLongSchedule = (schedule: Schedule): Schedule[] => {
     });
 };
 
-const getOverlapInfo = (schedule: Schedule, schedules: Schedule[]) => {
-    const start = parseTimeToMinutes(schedule.start_time);
-    let end = parseTimeToMinutes(schedule.end_time);
-    if (end < start) end += 24 * 60;
-
-    const overlapping = schedules.filter(other => {
-        const otherStart = parseTimeToMinutes(other.start_time);
-        let otherEnd = parseTimeToMinutes(other.end_time);
-        if (otherEnd < otherStart) otherEnd += 24 * 60;
-        return start < otherEnd && otherStart < end;
-    });
-
-    overlapping.sort((a, b) => {
-        const diff = parseTimeToMinutes(a.start_time) - parseTimeToMinutes(b.start_time);
-        return diff !== 0 ? diff : a.id - b.id;
-    });
-
-    return {
-        multipleStreamsIndex: overlapping.findIndex(s => s.id === schedule.id),
-        totalMultipleStreams: overlapping.length,
+// Greedy interval graph coloring (matching streaming-guide-frontend/ScheduleRow.tsx).
+// Assigns each schedule to the lowest available lane so that no two overlapping
+// schedules share a lane. The total lanes equals the true maximum concurrency,
+// avoiding the over-count bug of the naïve approach (where A overlaps B and A
+// overlaps C but B and C don't overlap → old code said totalStreams=3, correct=2).
+const computeLaneAssignments = (
+    schedules: Schedule[],
+): Map<string, { laneIndex: number; totalLanes: number }> => {
+    const getStart = (s: Schedule) => parseTimeToMinutes(s.start_time);
+    const getEnd = (s: Schedule) => {
+        const start = getStart(s);
+        let end = parseTimeToMinutes(s.end_time);
+        if (end <= start) end += 24 * 60;
+        return end;
     };
+    const overlaps = (a: Schedule, b: Schedule) => {
+        const aStart = getStart(a), aEnd = getEnd(a);
+        const bStart = getStart(b), bEnd = getEnd(b);
+        return aStart < bEnd && bStart < aEnd;
+    };
+
+    // Sort by start time so the greedy scan is monotone
+    const sorted = [...schedules].sort((a, b) => {
+        const diff = getStart(a) - getStart(b);
+        return diff !== 0 ? diff : String(a.id).localeCompare(String(b.id));
+    });
+
+    const laneEndTimes: number[] = []; // when each lane next becomes free
+    const laneMap = new Map<string, number>(); // id → assigned lane index
+
+    for (const s of sorted) {
+        // Solo schedules (no overlap with anything) don't need lane assignment
+        const hasAnyOverlap = schedules.some(other => other.id !== s.id && overlaps(s, other));
+        if (!hasAnyOverlap) continue;
+
+        const start = getStart(s);
+        let lane = laneEndTimes.findIndex(t => t <= start);
+        if (lane === -1) {
+            lane = laneEndTimes.length; // open a new lane
+            laneEndTimes.push(getEnd(s));
+        } else {
+            laneEndTimes[lane] = getEnd(s);
+        }
+        laneMap.set(String(s.id), lane);
+    }
+
+    const totalLanes = laneEndTimes.length;
+    const result = new Map<string, { laneIndex: number; totalLanes: number }>();
+    for (const s of schedules) {
+        const lane = laneMap.get(String(s.id));
+        result.set(String(s.id), lane === undefined
+            ? { laneIndex: 0, totalLanes: 1 }       // solo: full row
+            : { laneIndex: lane, totalLanes },        // overlapping: share row
+        );
+    }
+    return result;
 };
 
 export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWidth, isViewingToday, isPastDay }: Props) => {
@@ -82,6 +117,7 @@ export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWi
     // Split long programs into segments before overlap detection so each segment
     // is narrow enough to show its title within the visible viewport.
     const schedules = channel.schedules.flatMap(splitLongSchedule);
+    const laneAssignments = computeLaneAssignments(schedules);
 
     return (
         <View style={[styles.row, { width: totalWidth }]}>
@@ -96,15 +132,15 @@ export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWi
             {/* Programs Track */}
             <View style={[styles.programsTrack, { width: totalWidth }]}>
                 {schedules.map((schedule) => {
-                    const { multipleStreamsIndex, totalMultipleStreams } = getOverlapInfo(schedule, schedules);
+                    const { laneIndex, totalLanes } = laneAssignments.get(String(schedule.id)) ?? { laneIndex: 0, totalLanes: 1 };
                     return (
                         <ProgramBlock
                             key={schedule.id}
                             schedule={schedule}
                             pixelsPerMinute={pixelsPerMinute}
                             channelColor={channelColor}
-                            multipleStreamsIndex={multipleStreamsIndex}
-                            totalMultipleStreams={totalMultipleStreams}
+                            multipleStreamsIndex={laneIndex}
+                            totalMultipleStreams={totalLanes}
                             isViewingToday={isViewingToday}
                             isPastDay={isPastDay}
                         />
