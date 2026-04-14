@@ -130,7 +130,7 @@ const SubscriptionTile = ({
                                         });
                                     } else {
                                         // Fallback if not a streamer
-                                        trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: s.url, channel_name: title });
+                                        trackEvent('streamer_service_click', { action: 'streamer_service_click', click_url: s.url, channel_name: title || 'unknown' });
                                     }
                                     Linking.openURL(s.url);
                                 }}

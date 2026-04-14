@@ -12,6 +12,7 @@ import {
     RumConfiguration,
     TrackingConsent,
 } from '@datadog/mobile-react-native';
+import { SessionReplay } from '@datadog/mobile-react-native-session-replay';
 
 let posthog: PostHog | null = null;
 let _isAdminUser = false;
@@ -108,6 +109,9 @@ export const initAnalytics = async () => {
             await DdSdkReactNative.initialize(config);
             _ddInitialized = true;
             console.log('✅ Datadog RUM initialized');
+
+            await SessionReplay.enable({ replaySampleRate: 20 });
+            console.log('✅ Datadog Session Replay enabled (20% sample rate)');
         } else {
             console.warn('⚠️ Datadog credentials missing. Datadog RUM will not be initialized.');
         }

@@ -9,8 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Datadog Mobile Session Replay enabled with 20% sample rate
 ### Changed
 ### Fixed
+- Analytics events: added `|| 'unknown'` fallback to `channel_name` in `streamer_service_click` event (FavoritesScreen)
 ### Removed
 
 ---
