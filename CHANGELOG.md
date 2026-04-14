@@ -19,6 +19,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.7] - 2026-04-14
+
+### Added
+- Datadog Mobile Session Replay enabled with 20% sample rate
+
+### Fixed
+- Analytics events: `channel_name` now passes the real channel name in all program events (`program_subscribe`, `program_unsubscribe`, `click_youtube_live`, `click_youtube_deferred`) — previously always `'unknown'` because `program.channel` was not included in the API response
+- Analytics events: added `|| 'unknown'` fallback to `channel_name` in `streamer_service_click` event (FavoritesScreen)
+- BannerCarousel: replaced `pagingEnabled` with `snapToInterval` to eliminate adjacent banner bleeding on left edge during swipe; fixed `BANNER_WIDTH` calculation to account for 1px border on each side
+
+---
+
 ## [1.0.6] - 2026-04-12
 
 ### Added
