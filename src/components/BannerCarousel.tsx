@@ -7,7 +7,7 @@ import { spacing } from '../theme/tokens';
 
 const BANNER_HEIGHT = 120;
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const BANNER_WIDTH = SCREEN_WIDTH - (spacing.sm * 2); // Container has marginHorizontal
+const BANNER_WIDTH = SCREEN_WIDTH - (spacing.sm * 2) - 2; // Container has marginHorizontal + 1px border each side
 
 interface Props {
     banners: Banner[];
@@ -141,7 +141,9 @@ export const BannerCarousel = ({ banners }: Props) => {
                 keyExtractor={(_, index) => `banner-${index}`}
                 renderItem={renderItem}
                 horizontal
-                pagingEnabled
+                snapToInterval={BANNER_WIDTH}
+                snapToAlignment="start"
+                decelerationRate="fast"
                 showsHorizontalScrollIndicator={false}
                 onScrollBeginDrag={handleScrollBeginDrag}
                 onMomentumScrollEnd={handleScrollEnd}

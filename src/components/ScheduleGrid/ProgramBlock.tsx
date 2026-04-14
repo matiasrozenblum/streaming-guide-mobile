@@ -19,6 +19,7 @@ dayjs.extend(customParseFormat);
 interface Props {
     schedule: Schedule;
     pixelsPerMinute: number;
+    channelName: string;
     channelColor?: string | null;
     multipleStreamsIndex?: number;
     totalMultipleStreams?: number;
@@ -26,7 +27,7 @@ interface Props {
     isPastDay?: boolean;
 }
 
-export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1, isViewingToday = true, isPastDay = false }: Props) => {
+export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1, isViewingToday = true, isPastDay = false }: Props) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(schedule.subscribed);
     const [bellLoading, setBellLoading] = useState(false);
@@ -52,7 +53,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                 trackEvent('program_subscribe', {
                     program_id: schedule.program.id.toString(),
                     program_name: schedule.program.name,
-                    channel_name: schedule.program.channel?.name || 'unknown',
+                    channel_name: channelName,
                 });
             });
             return;
@@ -66,7 +67,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                 trackEvent('program_unsubscribe', { 
                     program_id: schedule.program.id.toString(),
                     program_name: schedule.program.name,
-                    channel_name: schedule.program.channel?.name || 'unknown',
+                    channel_name: channelName,
                 });
             } else {
                 // Request notification permission before subscribing (shows system dialog if not yet granted)
@@ -96,7 +97,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                 trackEvent('program_subscribe', { 
                     program_id: schedule.program.id.toString(),
                     program_name: schedule.program.name,
-                    channel_name: schedule.program.channel?.name || 'unknown',
+                    channel_name: channelName,
                 });
             }
         } catch (error) {
@@ -295,7 +296,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelColor, multiple
                                                     trackEvent(schedule.program.is_live ? 'click_youtube_live' : 'click_youtube_deferred', {
                                                         category: 'program',
                                                         program_name: schedule.program.name,
-                                                        channel_name: schedule.program.channel?.name || 'unknown',
+                                                        channel_name: channelName,
                                                     });
                                                     openVideo(schedule.program.stream_url, service);
                                                 }

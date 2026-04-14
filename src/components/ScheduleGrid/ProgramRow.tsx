@@ -138,6 +138,7 @@ export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWi
                             key={schedule.id}
                             schedule={schedule}
                             pixelsPerMinute={pixelsPerMinute}
+                            channelName={channel.channel.name}
                             channelColor={channelColor}
                             multipleStreamsIndex={laneIndex}
                             totalMultipleStreams={totalLanes}
