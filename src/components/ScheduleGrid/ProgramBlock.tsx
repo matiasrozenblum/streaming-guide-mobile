@@ -369,6 +369,7 @@ const styles = StyleSheet.create({
         fontWeight: fontWeight.bold, // 700 - match web
         textAlign: 'center',
         lineHeight: 14, // explicit line height prevents Android from using a larger default
+        width: '100%', // prevent mid-word breaks: alignItems:'center' on parent shrinks text layout box
     },
     panelists: {
         fontSize: 10, // 0.65rem ≈ 10.4px, matching web
