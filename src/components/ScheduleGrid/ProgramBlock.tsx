@@ -107,6 +107,8 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
         }
     };
 
+    const TOTAL_WIDTH_WITH_OVERFLOW = 3360; // 28 * 60 * 2px
+
     // Parsing start/end
     const [startH, startM] = schedule.start_time.split(':').map(Number);
     const [endH, endM] = schedule.end_time.split(':').map(Number);
@@ -118,9 +120,17 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
         endMinutes += 24 * 60;
     }
 
+    const positionOffset = schedule.positionOffset ?? 0;
     const duration = endMinutes - startMinutes;
-    const width = Math.max(duration * pixelsPerMinute - 1, 1); // Width - 1px for spacing
-    const left = startMinutes * pixelsPerMinute;
+    const left = (startMinutes + positionOffset) * pixelsPerMinute;
+
+    // Out-of-bounds guard: don't render blocks that start beyond the grid
+    if (left >= TOTAL_WIDTH_WITH_OVERFLOW) return null;
+
+    const rawWidth = Math.max(duration * pixelsPerMinute - 1, 1);
+    const width = Math.min(rawWidth, TOTAL_WIDTH_WITH_OVERFLOW - left - 1);
+
+    const isOverflowProgram = positionOffset > 0;
 
     const now = dayjs();
     const currentMinutes = now.hour() * 60 + now.minute();
@@ -167,7 +177,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
     const overrideStyles = getOverrideStyles();
 
     const backgroundColor = overrideStyles ? overrideStyles.bg : alpha(baseColor, bgOpacity);
-    const borderColor = overrideStyles ? overrideStyles.border : (isPast ? alpha(baseColor, 0.3) : baseColor);
+    const borderColor = overrideStyles ? overrideStyles.border : (isPast || isOverflowProgram ? alpha(baseColor, 0.3) : baseColor);
 
     // Overlap stacking: use pixel values (not percentages) so that flex children
     // (content with justifyContent:'center') resolve height correctly on both iOS and Android.

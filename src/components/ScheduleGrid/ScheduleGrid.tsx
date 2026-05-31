@@ -21,7 +21,8 @@ import { trackEvent } from '../../lib/analytics';
 
 const PIXELS_PER_MINUTE = layout.PIXELS_PER_MINUTE;
 const HOUR_WIDTH = 60 * PIXELS_PER_MINUTE;
-const TOTAL_WIDTH = 24 * HOUR_WIDTH;
+const OVERFLOW_HOURS = 4;
+const TOTAL_WIDTH = (24 + OVERFLOW_HOURS) * HOUR_WIDTH; // 3360px — includes 00:00–03:59 overflow zone
 const CHANNEL_COL_WIDTH = layout.CHANNEL_LABEL_WIDTH_MOBILE;
 const ROW_HEIGHT = layout.ROW_HEIGHT_MOBILE;
 const TIME_HEADER_HEIGHT = layout.TIME_HEADER_HEIGHT;

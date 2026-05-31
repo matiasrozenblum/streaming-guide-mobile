@@ -6,6 +6,8 @@ import { ProgramBlock } from './ProgramBlock';
 import { getColorForChannel } from '../../utils/colors';
 import { layout } from '../../theme/tokens';
 
+const TOTAL_WIDTH_WITH_OVERFLOW = 3360; // 28 * 60 * 2px
+
 interface Props {
     channel: ChannelWithSchedules;
     index: number;
@@ -59,15 +61,18 @@ const splitLongSchedule = (schedule: Schedule): Schedule[] => {
 // schedules share a lane. The total lanes equals the true maximum concurrency,
 // avoiding the over-count bug of the naïve approach (where A overlaps B and A
 // overlaps C but B and C don't overlap → old code said totalStreams=3, correct=2).
+const getKey = (s: Schedule) => `${s.id}_${s.positionOffset ?? 0}`;
+
 const computeLaneAssignments = (
     schedules: Schedule[],
 ): Map<string, { laneIndex: number; totalLanes: number }> => {
-    const getStart = (s: Schedule) => parseTimeToMinutes(s.start_time);
+    // Effective start/end accounting for positionOffset (overflow zone schedules are shifted by 24*60)
+    const getStart = (s: Schedule) => parseTimeToMinutes(s.start_time) + (s.positionOffset ?? 0);
     const getEnd = (s: Schedule) => {
-        const start = getStart(s);
+        const start = parseTimeToMinutes(s.start_time);
         let end = parseTimeToMinutes(s.end_time);
         if (end <= start) end += 24 * 60;
-        return end;
+        return end + (s.positionOffset ?? 0);
     };
     const overlaps = (a: Schedule, b: Schedule) => {
         const aStart = getStart(a), aEnd = getEnd(a);
@@ -78,15 +83,15 @@ const computeLaneAssignments = (
     // Sort by start time so the greedy scan is monotone
     const sorted = [...schedules].sort((a, b) => {
         const diff = getStart(a) - getStart(b);
-        return diff !== 0 ? diff : String(a.id).localeCompare(String(b.id));
+        return diff !== 0 ? diff : getKey(a).localeCompare(getKey(b));
     });
 
     const laneEndTimes: number[] = []; // when each lane next becomes free
-    const laneMap = new Map<string, number>(); // id → assigned lane index
+    const laneMap = new Map<string, number>(); // composite key → assigned lane index
 
     for (const s of sorted) {
         // Solo schedules (no overlap with anything) don't need lane assignment
-        const hasAnyOverlap = schedules.some(other => other.id !== s.id && overlaps(s, other));
+        const hasAnyOverlap = schedules.some(other => getKey(other) !== getKey(s) && overlaps(s, other));
         if (!hasAnyOverlap) continue;
 
         const start = getStart(s);
@@ -97,14 +102,14 @@ const computeLaneAssignments = (
         } else {
             laneEndTimes[lane] = getEnd(s);
         }
-        laneMap.set(String(s.id), lane);
+        laneMap.set(getKey(s), lane);
     }
 
     const totalLanes = laneEndTimes.length;
     const result = new Map<string, { laneIndex: number; totalLanes: number }>();
     for (const s of schedules) {
-        const lane = laneMap.get(String(s.id));
-        result.set(String(s.id), lane === undefined
+        const lane = laneMap.get(getKey(s));
+        result.set(getKey(s), lane === undefined
             ? { laneIndex: 0, totalLanes: 1 }       // solo: full row
             : { laneIndex: lane, totalLanes },        // overlapping: share row
         );
@@ -131,11 +136,23 @@ export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWi
 
             {/* Programs Track */}
             <View style={[styles.programsTrack, { width: totalWidth }]}>
+                {/* Overflow zone background (00:00–03:59 of next day) */}
+                <View
+                    pointerEvents="none"
+                    style={{
+                        position: 'absolute',
+                        left: 24 * 60 * pixelsPerMinute,
+                        top: 0,
+                        bottom: 0,
+                        width: 4 * 60 * pixelsPerMinute,
+                        backgroundColor: 'rgba(255,255,255,0.02)',
+                    }}
+                />
                 {schedules.map((schedule) => {
-                    const { laneIndex, totalLanes } = laneAssignments.get(String(schedule.id)) ?? { laneIndex: 0, totalLanes: 1 };
+                    const { laneIndex, totalLanes } = laneAssignments.get(getKey(schedule)) ?? { laneIndex: 0, totalLanes: 1 };
                     return (
                         <ProgramBlock
-                            key={schedule.id}
+                            key={getKey(schedule)}
                             schedule={schedule}
                             pixelsPerMinute={pixelsPerMinute}
                             channelName={channel.channel.name}

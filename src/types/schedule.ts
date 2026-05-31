@@ -34,4 +34,5 @@ export interface Schedule {
     overrideType?: 'cancel' | 'time_change' | 'reschedule';
     programId?: number;
     panelistIds?: number[];
+    positionOffset?: number; // minutes to add to left position for overflow zone rendering
 }
