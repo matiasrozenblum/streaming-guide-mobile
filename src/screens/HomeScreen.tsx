@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, StatusBar as RNStatusBar, Platform, ScrollView, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -67,6 +67,7 @@ function mergeTodayIntoWeek(
 export const HomeScreen = () => {
     const { isAuthenticated } = useAuth();
     const [weekChannels, setWeekChannels] = useState<ChannelWithSchedules[]>([]);
+    const [nextWeekMondayChannels, setNextWeekMondayChannels] = useState<ChannelWithSchedules[]>([]);
     const [banners, setBanners] = useState<Banner[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
@@ -74,6 +75,8 @@ export const HomeScreen = () => {
     const [selectedDate, setSelectedDate] = useState<string>(''); // English day name ('monday', etc.) or '' for today
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const weekLoadedRef = useRef(false);
+    const isMountedRef = useRef(true);
+    useEffect(() => () => { isMountedRef.current = false; }, []);
 
     // Holiday Dialogs
     const isSeasonActive = isBeforeInBuenosAires('2026-01-02');
@@ -166,6 +169,13 @@ export const HomeScreen = () => {
                 })
                 .catch(err => console.warn('[Perf] Week schedules fetch failed:', err));
 
+            // Next-week Monday (for Sunday overflow) — background fetch, small payload
+            ScheduleService.getNextWeekMondaySchedules()
+                .then(data => {
+                    if (isMountedRef.current) setNextWeekMondayChannels(data);
+                })
+                .catch(err => console.warn('[Perf] Next-week Monday fetch failed:', err));
+
         } catch (error) {
             console.error('Failed to load data:', error);
         } finally {
@@ -185,11 +195,34 @@ export const HomeScreen = () => {
     const selectedWeekIndex = weekDays.indexOf(selectedDayName);
     const isPastDay = !isViewingToday && selectedWeekIndex !== -1 && todayWeekIndex !== -1 && selectedWeekIndex < todayWeekIndex;
 
+    const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const OVERFLOW_MINUTES = 240;
+
+    const nextDayName = DAY_ORDER[(DAY_ORDER.indexOf(selectedDayName) + 1) % 7];
+
+    // Sunday overflow uses next week's Monday data (with its own overrides); other days use current week.
+    const overflowSource = (selectedDayName === 'sunday' && nextWeekMondayChannels.length > 0)
+        ? nextWeekMondayChannels
+        : weekChannels;
+
     const filteredByDay: ChannelWithSchedules[] = weekChannels
-        .map(ch => ({
-            ...ch,
-            schedules: ch.schedules.filter(s => s.day_of_week === selectedDayName),
-        }))
+        .map(ch => {
+            const daySchedules = ch.schedules.filter(s => s.day_of_week === selectedDayName);
+
+            const overflowCh = overflowSource.find(c => c.channel.id === ch.channel.id);
+            const overflowSchedules = (overflowCh?.schedules ?? [])
+                .filter(s => {
+                    if (s.day_of_week !== nextDayName) return false;
+                    const [h, m] = s.start_time.split(':').map(Number);
+                    return (h * 60 + m) < OVERFLOW_MINUTES;
+                })
+                .map(s => ({ ...s, positionOffset: 24 * 60 }));
+
+            return {
+                ...ch,
+                schedules: [...daySchedules, ...overflowSchedules],
+            };
+        })
         .filter(ch => ch.schedules.length > 0 || !ch.channel.show_only_when_scheduled);
 
     // Load data on focus and when auth state changes (login/logout)
@@ -202,6 +235,9 @@ export const HomeScreen = () => {
     // SSE: refresh data when backend emits live status / schedule changes
     const handleSSERefresh = useCallback(() => {
         loadData(false);
+        ScheduleService.getNextWeekMondaySchedules()
+            .then(data => setNextWeekMondayChannels(data))
+            .catch(() => {});
     }, []);
 
     useLiveStatus(handleSSERefresh);

@@ -19,6 +19,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.9] - 2026-06-03
+
+### Added
+- Zona de overflow en el schedule grid: muestra programas de 00:00–03:59 del día siguiente al final de la grilla
+- Indicador visual de programa especial (weekly override): dot naranja o pill con texto "¡Hoy!" / "¡Especial!" / "Cancelado"
+
+### Fixed
+- Bordes de program blocks en zona de overflow ahora reflejan correctamente el estado (en vivo, pasado, futuro)
+- Badge LIVE en zona de overflow: se muestra cuando el reloj está entre 00:00–03:59 y el programa está en vivo
+- Cálculo de `isPast` para programas de overflow corregido (comparación en escala extendida de 28h)
+- Corte de palabras en bloques angostos: los títulos ya no se parten en medio de una palabra
+
+---
+
 ## [1.0.7] - 2026-04-14
 
 ### Added

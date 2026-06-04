@@ -2,6 +2,7 @@ import api from './api';
 import { DeviceService } from './device.service';
 import { ChannelWithSchedules } from '../types/channel';
 import { CacheService } from './cache.service';
+import { getNextMondayDate } from '../utils/dateUtils';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
 
@@ -9,6 +10,7 @@ const CACHE_KEYS = {
     TODAY_SCHEDULES: 'today-schedules',
     WEEK_SCHEDULES: 'week-schedules',
     CATEGORIES: 'categories',
+    NEXT_WEEK_MONDAY: 'next-week-monday-schedules',
 };
 
 const TTL = {
@@ -36,6 +38,15 @@ export const ScheduleService = {
     async getWeekSchedules(): Promise<ChannelWithSchedules[]> {
         const deviceId = await DeviceService.getDeviceId();
         const response = await api.get(`/channels/with-schedules/week?live_status=true&deviceId=${deviceId}`);
+        return response.data;
+    },
+
+    async getNextWeekMondaySchedules(): Promise<ChannelWithSchedules[]> {
+        const nextMonday = getNextMondayDate();
+        const deviceId = await DeviceService.getDeviceId();
+        const response = await api.get(
+            `/channels/with-schedules/week?weekStart=${nextMonday}&live_status=true&deviceId=${deviceId}`
+        );
         return response.data;
     },
 
