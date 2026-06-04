@@ -134,9 +134,34 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
 
     const now = dayjs();
     const currentMinutes = now.hour() * 60 + now.minute();
-    // isPast: past day → all past; today → time-based; future day → none past
-    const isPast = isViewingToday ? endMinutes < currentMinutes : isPastDay;
-    const isLive = isViewingToday && schedule.program.is_live;
+
+    // Overflow programs sit in the next-day early-morning zone (positionOffset = 1440).
+    // Comparing their raw end time (e.g. 120 min = 02:00) against the current clock time
+    // (e.g. 1320 min = 22:00) would wrongly mark them as past. Shift both values into the
+    // same extended 28-hour scale: add positionOffset to the program's end, and add 24h to
+    // currentMinutes only when we're in the 00:00–03:59 overnight window.
+    const adjustedEnd = isOverflowProgram ? endMinutes + positionOffset : endMinutes;
+    const adjustedNow = isOverflowProgram && currentMinutes < 4 * 60
+        ? currentMinutes + 24 * 60
+        : currentMinutes;
+    const isPast = isViewingToday ? adjustedEnd < adjustedNow : isPastDay;
+
+    // Overflow programs are in the next calendar day's 00:00–03:59 window. When the current
+    // clock is inside that window and isViewingToday is false (we're viewing "yesterday"),
+    // the overflow program can still be live — gate only on the overnight window + is_live flag.
+    const isLive = isViewingToday
+        ? schedule.program.is_live
+        : isOverflowProgram && !isPastDay && currentMinutes < 4 * 60 && schedule.program.is_live;
+
+    const isWeeklyOverride = schedule.isWeeklyOverride ?? false;
+    const weeklyOverrideType = schedule.overrideType;
+
+    // "Today" for the pill label: viewing today's grid, OR overflow program in the overnight window
+    const isEffectivelyToday = isViewingToday || (isOverflowProgram && !isPastDay && currentMinutes < 4 * 60);
+    const weeklyOverridePillLabel = weeklyOverrideType === 'cancel'
+        ? 'Cancelado'
+        : isEffectivelyToday ? '¡Hoy!' : '¡Especial!';
+    const showWeeklyOverridePill = isWeeklyOverride && width > 100 && totalMultipleStreams === 1;
 
     const baseColor = channelColor || '#1f2937';
 
@@ -177,7 +202,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
     const overrideStyles = getOverrideStyles();
 
     const backgroundColor = overrideStyles ? overrideStyles.bg : alpha(baseColor, bgOpacity);
-    const borderColor = overrideStyles ? overrideStyles.border : (isPast || isOverflowProgram ? alpha(baseColor, 0.3) : baseColor);
+    const borderColor = overrideStyles ? overrideStyles.border : (isPast ? alpha(baseColor, 0.3) : baseColor);
 
     // Overlap stacking: use pixel values (not percentages) so that flex children
     // (content with justifyContent:'center') resolve height correctly on both iOS and Android.
@@ -226,6 +251,18 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
                 {isLive && (
                     <View style={styles.liveBadge}>
                         <Text style={styles.liveText}>LIVE</Text>
+                    </View>
+                )}
+
+                {/* Weekly override indicator — orange dot (narrow/stacked) or pill (wider blocks) */}
+                {isWeeklyOverride && !showWeeklyOverridePill && (
+                    <View style={styles.weeklyOverrideDot} />
+                )}
+                {showWeeklyOverridePill && (
+                    <View style={styles.weeklyOverridePill}>
+                        <Text style={styles.weeklyOverridePillText} numberOfLines={1}>
+                            {weeklyOverridePillLabel}
+                        </Text>
                     </View>
                 )}
 
@@ -427,6 +464,36 @@ const styles = StyleSheet.create({
         width: '120%',
         zIndex: 1,
         borderRadius: borderRadius.sm,
+    },
+    weeklyOverrideDot: {
+        position: 'absolute',
+        top: 6,
+        left: 6,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: 'rgba(255, 152, 0, 0.5)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 152, 0, 1)',
+        zIndex: 5,
+    },
+    weeklyOverridePill: {
+        position: 'absolute',
+        top: 4,
+        left: 4,
+        backgroundColor: 'rgba(255, 152, 0, 0.18)',
+        borderColor: '#ff9800',
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+        zIndex: 5,
+        maxWidth: '80%',
+    },
+    weeklyOverridePillText: {
+        color: '#ff9800',
+        fontWeight: fontWeight.bold,
+        fontSize: 9,
     },
     // Tooltip/Modal Styles
     modalOverlay: {
