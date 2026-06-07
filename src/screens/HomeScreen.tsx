@@ -23,6 +23,7 @@ import { appApi } from '../services/api';
 import { HolidayDialog } from '../components/HolidayDialog';
 import { SeasonalDialog } from '../components/SeasonalDialog';
 import { isBeforeInBuenosAires } from '../utils/dateUtils';
+import { getARTDayName, getLocalToARTOffsetMinutes, localizeSchedule } from '../utils/timezone';
 
 /**
  * Merge fresh today data (from V2 endpoint) into existing week data.
@@ -35,7 +36,7 @@ function mergeTodayIntoWeek(
 ): ChannelWithSchedules[] {
     if (weekData.length === 0) return todayData;
 
-    const todayDay = dayjs().locale('en').format('dddd').toLowerCase();
+    const todayDay = getARTDayName();
     const todayByChannelId = new Map(todayData.map(ch => [ch.channel.id, ch]));
 
     const merged = weekData.map(weekCh => {
@@ -200,12 +201,57 @@ export const HomeScreen = () => {
 
     const nextDayName = DAY_ORDER[(DAY_ORDER.indexOf(selectedDayName) + 1) % 7];
 
-    // Sunday overflow uses next week's Monday data (with its own overrides); other days use current week.
-    const overflowSource = (selectedDayName === 'sunday' && nextWeekMondayChannels.length > 0)
-        ? nextWeekMondayChannels
-        : weekChannels;
+    const offsetFromART = useMemo(() => getLocalToARTOffsetMinutes(), []);
 
-    const filteredByDay: ChannelWithSchedules[] = weekChannels
+    // Localize all week schedules to device local time (no-op for ART users).
+    // Also patches 24/7 programs with the live stream_url from whichever schedule is
+    // currently marked is_live=true, so non-ART users see the correct stream URL.
+    const localizedWeekChannels = useMemo(() => {
+        const liveByProgramId = new Map<number, string>();
+        for (const ch of weekChannels) {
+            for (const s of ch.schedules) {
+                if (s.program.is_live && s.program.stream_url) {
+                    liveByProgramId.set(s.program.id, s.program.stream_url);
+                }
+            }
+        }
+        return weekChannels.map(ch => ({
+            ...ch,
+            schedules: ch.schedules.map(s => {
+                const localized = localizeSchedule(s, offsetFromART);
+                // 24/7 programs are not converted by localizeSchedule (timezone-agnostic).
+                // Force is_live=true and correct stream_url so non-ART users get the live feed.
+                const is24_7 = s.start_time.startsWith('00:00') && s.end_time.startsWith('23:59');
+                if (is24_7 && liveByProgramId.has(s.program.id)) {
+                    return {
+                        ...localized,
+                        program: {
+                            ...localized.program,
+                            is_live: true,
+                            stream_url: liveByProgramId.get(s.program.id) ?? localized.program.stream_url,
+                        },
+                    };
+                }
+                return localized;
+            }),
+        }));
+    }, [weekChannels, offsetFromART]);
+
+    const localizedNextWeekMondayChannels = useMemo(() =>
+        nextWeekMondayChannels.map(ch => ({
+            ...ch,
+            schedules: ch.schedules.map(s => localizeSchedule(s, offsetFromART)),
+        })),
+        [nextWeekMondayChannels, offsetFromART],
+    );
+
+    // Sunday overflow always uses next-week Monday data (localized) to avoid duplicating
+    // ART-Sunday programs that shift into local Monday for users east of ART (e.g. UTC+13).
+    const overflowSource = (selectedDayName === 'sunday' && localizedNextWeekMondayChannels.length > 0)
+        ? localizedNextWeekMondayChannels
+        : localizedWeekChannels;
+
+    const filteredByDay: ChannelWithSchedules[] = localizedWeekChannels
         .map(ch => {
             const daySchedules = ch.schedules.filter(s => s.day_of_week === selectedDayName);
 

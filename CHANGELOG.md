@@ -10,7 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Datadog Mobile Session Replay enabled with 20% sample rate
+- Timezone adaptation: schedule grid now shows times in the user's local timezone for users outside Argentina; 24/7 channels remain timezone-agnostic and always show the live badge + correct stream URL
 ### Changed
+- `mergeTodayIntoWeek` now uses Buenos Aires time (not device local time) to correctly refresh live status for non-ART users
 ### Fixed
 - Analytics events: added `|| 'unknown'` fallback to `channel_name` in `streamer_service_click` event (FavoritesScreen)
 - BannerCarousel: replaced `pagingEnabled` with `snapToInterval` to fix previous banner bleeding on left edge during swipe
