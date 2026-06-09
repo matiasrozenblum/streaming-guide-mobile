@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import {
     View, StyleSheet, Dimensions, ActivityIndicator,
     TouchableOpacity, Text, RefreshControl, ScrollView, Platform,
+    Animated as RNAnimated,
 } from 'react-native';
 import Animated, {
     useSharedValue, useAnimatedScrollHandler,
@@ -66,30 +67,40 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         },
     });
 
-    // --- Android nav overlay ---
+    // --- Android nav overlay (scroll-driven, no state transitions) ---
     // stickyHeaderIndices has a touch-coordinate offset bug on Android: taps on the
-    // stuck header land on wrong content below. Fix: render a duplicate nav OUTSIDE
-    // the ScrollView when the nav is stuck (scrollY > bannerHeight).
-    //
-    // Visual artifact fix: while the overlay is active, the in-scroll nav content is
-    // hidden (opacity:0) so only one copy is ever visible — no double-header on scroll-up.
-    const bannerHeightRef = useRef(0);
-    const isNavOverlayActiveRef = useRef(false);
-    const [isNavOverlay, setIsNavOverlay] = useState(false);
+    // stuck header land on wrong content below. Fix: render the nav OUTSIDE the
+    // ScrollView and drive its position with an Animated.Value so it tracks the
+    // banner scroll in lockstep — identical to how iOS sticky headers feel, with
+    // no mount/unmount transitions that cause jumps.
+    const scrollYAnim = useRef(new RNAnimated.Value(0)).current;
+    const [bannerHeight, setBannerHeight] = useState(0);
 
     const onBannerLayout = useCallback((e: { nativeEvent: { layout: { height: number } } }) => {
-        bannerHeightRef.current = e.nativeEvent.layout.height;
+        setBannerHeight(e.nativeEvent.layout.height);
     }, []);
 
-    const onVerticalScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-        if (Platform.OS !== 'android') return;
-        const y = e.nativeEvent.contentOffset.y;
-        const shouldOverlay = bannerHeightRef.current > 0 && y > bannerHeightRef.current;
-        if (shouldOverlay !== isNavOverlayActiveRef.current) {
-            isNavOverlayActiveRef.current = shouldOverlay;
-            setIsNavOverlay(shouldOverlay);
-        }
-    }, []);
+    // translateY goes from bannerHeight→0 as scrollY goes from 0→bannerHeight, then clamps.
+    const overlayTranslateY = useMemo(() =>
+        bannerHeight > 0
+            ? scrollYAnim.interpolate({
+                inputRange: [0, bannerHeight],
+                outputRange: [bannerHeight, 0],
+                extrapolate: 'clamp',
+            })
+            : scrollYAnim, // bannerHeight not yet measured — stays at 0 (invisible)
+        [bannerHeight, scrollYAnim],
+    );
+
+    const onAndroidVerticalScroll = useMemo(() =>
+        Platform.OS === 'android'
+            ? RNAnimated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollYAnim } } }],
+                { useNativeDriver: false },
+            )
+            : undefined,
+        [scrollYAnim],
+    );
 
     // --- Scroll to top when category changes ---
     useEffect(() => {
@@ -179,19 +190,28 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/* Android-only overlay: correct touch targets when nav is stuck at top.
-                The in-scroll nav gets opacity:0 while this is active so only one copy
-                is visible at a time (prevents double-header on scroll-up transition). */}
-            {Platform.OS === 'android' && isNavOverlay && (
-                <View style={[styles.navOverlay, { backgroundColor: theme.colors.background }]}>
+            {/* Android-only overlay: always mounted, position driven by scroll value.
+                translateY tracks the banner so the nav moves in lockstep — smooth
+                on both scroll-down and scroll-up, no state-transition jumps. */}
+            {Platform.OS === 'android' && (
+                <RNAnimated.View
+                    style={[
+                        styles.navOverlay,
+                        {
+                            backgroundColor: theme.colors.background,
+                            opacity: bannerHeight > 0 ? 1 : 0,
+                            transform: [{ translateY: overlayTranslateY }],
+                        },
+                    ]}
+                >
                     {stickyNavContent}
-                </View>
+                </RNAnimated.View>
             )}
 
             <ScrollView
                 ref={mainVerticalRef}
-                onScroll={onVerticalScroll}
-                scrollEventThrottle={16}
+                onScroll={onAndroidVerticalScroll}
+                scrollEventThrottle={Platform.OS === 'android' ? 16 : undefined}
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
                 bounces={Platform.OS === 'ios' && !!onRefresh}
@@ -218,9 +238,13 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                     collapsable={false}
                     style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}
                 >
-                    {/* Hidden on Android while the overlay is active — prevents double-header */}
-                    <View style={{ opacity: Platform.OS === 'android' && isNavOverlay ? 0 : 1 }}
-                          pointerEvents={Platform.OS === 'android' && isNavOverlay ? 'none' : 'auto'}>
+                    {/* On Android the overlay always handles this content.
+                        Hidden here once the banner is measured (overlay takes over);
+                        visible before measurement so there is no blank flash at startup. */}
+                    <View
+                        style={{ opacity: Platform.OS === 'android' && bannerHeight > 0 ? 0 : 1 }}
+                        pointerEvents={Platform.OS === 'android' && bannerHeight > 0 ? 'none' : 'auto'}
+                    >
                         {stickyNavContent}
                     </View>
 
