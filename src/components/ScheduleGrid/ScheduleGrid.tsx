@@ -112,7 +112,11 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         // Programmatic animated scrolls don't reliably fire onScroll with useNativeDriver:true,
         // leaving scrollYAnim stale and the overlay mispositioned.
         mainVerticalRef.current?.scrollTo({ y: 0, animated: false });
-        if (Platform.OS === 'android') scrollYAnim.setValue(0);
+        // Reset overlay position via Animated.timing (duration:0) — setValue is ignored by
+        // the native driver, but timing correctly updates the native-thread animated value.
+        if (Platform.OS === 'android') {
+            RNAnimated.timing(scrollYAnim, { toValue: 0, duration: 0, useNativeDriver: true }).start();
+        }
     }, [selectedCategoryId]);
 
     // --- Now line offset ---
