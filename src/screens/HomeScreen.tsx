@@ -77,6 +77,7 @@ export const HomeScreen = () => {
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const weekLoadedRef = useRef(false);
     const isMountedRef = useRef(true);
+    const categorySelectorScrollXRef = useRef(0);
     useEffect(() => () => { isMountedRef.current = false; }, []);
 
     // Holiday Dialogs
@@ -314,6 +315,7 @@ export const HomeScreen = () => {
                     categories={categories}
                     selectedCategory={selectedCategory}
                     onSelectCategory={setSelectedCategory}
+                    scrollXRef={categorySelectorScrollXRef}
                 />
             )}
         </View>

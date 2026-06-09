@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Category } from '../types/channel';
 import { getTheme } from '../theme';
@@ -8,27 +8,51 @@ interface Props {
     categories: Category[];
     selectedCategory: Category | null;
     onSelectCategory: (category: Category | null) => void;
+    scrollXRef?: React.MutableRefObject<number>; // shared ref to persist/restore scroll offset across instances
 }
 
 const TAB_WIDTH = layout.PIXELS_PER_MINUTE * 60; // 120px — matches hour block width
 const FIRST_TAB_WIDTH = layout.CHANNEL_LABEL_WIDTH_MOBILE; // 122px — matches channel label
 
-export const CategorySelector = ({ categories, selectedCategory, onSelectCategory }: Props) => {
+export const CategorySelector = ({ categories, selectedCategory, onSelectCategory, scrollXRef }: Props) => {
     const theme = getTheme('dark');
     const scrollRef = useRef<ScrollView>(null);
+    const isFirstRender = useRef(true);
 
-    // Scroll to keep selected tab visible
+    // Restore scroll position from shared ref on mount (recovers position when overlay instance mounts)
     useEffect(() => {
+        const savedX = scrollXRef?.current ?? 0;
+        if (savedX > 0) {
+            setTimeout(() => {
+                scrollRef.current?.scrollTo({ x: savedX, animated: false });
+            }, 50);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Scroll to keep selected tab visible — skipped on initial mount to avoid overriding restoration
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         if (!selectedCategory) {
             scrollRef.current?.scrollTo({ x: 0, animated: true });
+            if (scrollXRef) scrollXRef.current = 0;
             return;
         }
         const index = categories.findIndex(c => c.id === selectedCategory.id);
         if (index >= 0) {
-            const offset = FIRST_TAB_WIDTH + index * TAB_WIDTH;
-            scrollRef.current?.scrollTo({ x: Math.max(offset - 60, 0), animated: true });
+            const x = Math.max(FIRST_TAB_WIDTH + index * TAB_WIDTH - 60, 0);
+            scrollRef.current?.scrollTo({ x, animated: true });
+            if (scrollXRef) scrollXRef.current = x;
         }
-    }, [selectedCategory, categories]);
+    }, [selectedCategory, categories]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { x: number } } }) => {
+        if (scrollXRef) {
+            scrollXRef.current = e.nativeEvent.contentOffset.x;
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const getActiveColor = (category: Category | null) => {
         if (category === null) return theme.colors.primary;
@@ -42,6 +66,8 @@ export const CategorySelector = ({ categories, selectedCategory, onSelectCategor
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
             >
                 {/* "Todos" tab */}
                 <TouchableOpacity
