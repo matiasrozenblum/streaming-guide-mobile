@@ -66,33 +66,6 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         },
     });
 
-    // --- Nav overlay logic ---
-    // The sticky nav (DaySelector + CategorySelector) is inside the ScrollView at its natural
-    // position below the banner. When the user scrolls past the banner, the nav becomes "stuck"
-    // via stickyHeaderIndices. On Android, stickyHeaderIndices has a touch-offset bug where
-    // taps on the stuck header are mapped to wrong content coordinates.
-    //
-    // Fix: when the nav is stuck (scrollY > bannerHeight), render a pixel-perfect overlay copy
-    // of the nav OUTSIDE the ScrollView. The overlay has correct touch targets because it is
-    // not subject to the ScrollView's coordinate system. The in-scroll nav gets pointerEvents="none"
-    // while the overlay is active so only one copy receives touches at a time.
-    const bannerHeightRef = useRef(0);
-    const isNavOverlayActiveRef = useRef(false);
-    const [isNavOverlay, setIsNavOverlay] = useState(false);
-
-    const onBannerLayout = useCallback((e: { nativeEvent: { layout: { height: number } } }) => {
-        bannerHeightRef.current = e.nativeEvent.layout.height;
-    }, []);
-
-    const onVerticalScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-        const y = e.nativeEvent.contentOffset.y;
-        const shouldOverlay = bannerHeightRef.current > 0 && y > bannerHeightRef.current;
-        if (shouldOverlay !== isNavOverlayActiveRef.current) {
-            isNavOverlayActiveRef.current = shouldOverlay;
-            setIsNavOverlay(shouldOverlay);
-        }
-    }, []);
-
     // --- Scroll to top when category changes ---
     useEffect(() => {
         if (isFirstCategoryChange.current) {
@@ -190,26 +163,14 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                     [3] Footer
                     [4] Bottom padding
 
-                Touch fix: when the nav is "stuck" (scrolled past banner), an absolutely-
-                positioned overlay copy of stickyNavContent is rendered outside the ScrollView.
-                The overlay has correct touch coordinates; the in-scroll nav gets
-                pointerEvents="none" while the overlay is active.
+                collapsable={false} on the sticky View prevents Android from collapsing the
+                view hierarchy, which would shift touch-event coordinates when the header
+                is stuck — eliminating the stickyHeaderIndices touch-offset bug on Android
+                without needing a duplicate overlay copy.
             */}
-
-            {/* Nav overlay — Android only. stickyHeaderIndices has a touch-coordinate offset bug
-                on Android where taps are mapped to wrong content coords when the header is stuck.
-                iOS does not have this bug so the overlay is never needed there — activating it
-                on iOS was causing CategorySelector scroll position and DaySelector day to reset
-                every time the banner scrolled out of view. */}
-            {Platform.OS === 'android' && isNavOverlay && (
-                <View style={[styles.navOverlay, { backgroundColor: theme.colors.background }]}>
-                    {stickyNavContent}
-                </View>
-            )}
 
             <ScrollView
                 ref={mainVerticalRef}
-                onScroll={onVerticalScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
@@ -230,12 +191,11 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 }
             >
                 {/* [0] Banner — scrolls away when user scrolls down */}
-                <View onLayout={onBannerLayout}>{bannerContent}</View>
+                {bannerContent}
 
                 {/* [1] STICKY HEADER — sticks to top when banner scrolls off */}
                 <View
                     collapsable={false}
-                    pointerEvents={Platform.OS === 'android' && isNavOverlay ? 'none' : 'auto'}
                     style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}
                 >
                     {stickyNavContent}
@@ -361,14 +321,6 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    navOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 200,
-        elevation: 200,
     },
     headerRow: {
         flexDirection: 'row',
