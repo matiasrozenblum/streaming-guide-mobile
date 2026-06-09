@@ -196,8 +196,12 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 pointerEvents="none" while the overlay is active.
             */}
 
-            {/* Nav overlay — outside ScrollView, shown only when nav is stuck */}
-            {isNavOverlay && (
+            {/* Nav overlay — Android only. stickyHeaderIndices has a touch-coordinate offset bug
+                on Android where taps are mapped to wrong content coords when the header is stuck.
+                iOS does not have this bug so the overlay is never needed there — activating it
+                on iOS was causing CategorySelector scroll position and DaySelector day to reset
+                every time the banner scrolled out of view. */}
+            {Platform.OS === 'android' && isNavOverlay && (
                 <View style={[styles.navOverlay, { backgroundColor: theme.colors.background }]}>
                     {stickyNavContent}
                 </View>
@@ -230,7 +234,8 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
                 {/* [1] STICKY HEADER — sticks to top when banner scrolls off */}
                 <View
-                    pointerEvents={isNavOverlay ? 'none' : 'auto'}
+                    collapsable={false}
+                    pointerEvents={Platform.OS === 'android' && isNavOverlay ? 'none' : 'auto'}
                     style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}
                 >
                     {stickyNavContent}

@@ -308,7 +308,7 @@ export const HomeScreen = () => {
 
     const renderStickyNavContent = () => (
         <View>
-            <DaySelector selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+            <DaySelector selectedDate={selectedDate} onSelectDate={setSelectedDate} todayName={todayName} />
             {categories.length > 0 && (
                 <CategorySelector
                     categories={categories}
