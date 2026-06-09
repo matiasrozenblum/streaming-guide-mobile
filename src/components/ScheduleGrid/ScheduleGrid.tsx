@@ -66,6 +66,31 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         },
     });
 
+    // --- Android nav overlay ---
+    // stickyHeaderIndices has a touch-coordinate offset bug on Android: taps on the
+    // stuck header land on wrong content below. Fix: render a duplicate nav OUTSIDE
+    // the ScrollView when the nav is stuck (scrollY > bannerHeight).
+    //
+    // Visual artifact fix: while the overlay is active, the in-scroll nav content is
+    // hidden (opacity:0) so only one copy is ever visible — no double-header on scroll-up.
+    const bannerHeightRef = useRef(0);
+    const isNavOverlayActiveRef = useRef(false);
+    const [isNavOverlay, setIsNavOverlay] = useState(false);
+
+    const onBannerLayout = useCallback((e: { nativeEvent: { layout: { height: number } } }) => {
+        bannerHeightRef.current = e.nativeEvent.layout.height;
+    }, []);
+
+    const onVerticalScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+        if (Platform.OS !== 'android') return;
+        const y = e.nativeEvent.contentOffset.y;
+        const shouldOverlay = bannerHeightRef.current > 0 && y > bannerHeightRef.current;
+        if (shouldOverlay !== isNavOverlayActiveRef.current) {
+            isNavOverlayActiveRef.current = shouldOverlay;
+            setIsNavOverlay(shouldOverlay);
+        }
+    }, []);
+
     // --- Scroll to top when category changes ---
     useEffect(() => {
         if (isFirstCategoryChange.current) {
@@ -154,23 +179,18 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            {/*
-                Layout:
-                  ScrollView:
-                    [0] Banner — scrolls away naturally
-                    [1] Sticky Nav + Time Header — sticks to top via stickyHeaderIndices
-                    [2] Grid content — scrolls normally
-                    [3] Footer
-                    [4] Bottom padding
-
-                collapsable={false} on the sticky View prevents Android from collapsing the
-                view hierarchy, which would shift touch-event coordinates when the header
-                is stuck — eliminating the stickyHeaderIndices touch-offset bug on Android
-                without needing a duplicate overlay copy.
-            */}
+            {/* Android-only overlay: correct touch targets when nav is stuck at top.
+                The in-scroll nav gets opacity:0 while this is active so only one copy
+                is visible at a time (prevents double-header on scroll-up transition). */}
+            {Platform.OS === 'android' && isNavOverlay && (
+                <View style={[styles.navOverlay, { backgroundColor: theme.colors.background }]}>
+                    {stickyNavContent}
+                </View>
+            )}
 
             <ScrollView
                 ref={mainVerticalRef}
+                onScroll={onVerticalScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 overScrollMode="never"
@@ -191,14 +211,18 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 }
             >
                 {/* [0] Banner — scrolls away when user scrolls down */}
-                {bannerContent}
+                <View onLayout={onBannerLayout}>{bannerContent}</View>
 
                 {/* [1] STICKY HEADER — sticks to top when banner scrolls off */}
                 <View
                     collapsable={false}
                     style={{ backgroundColor: theme.colors.background, zIndex: 100, elevation: 100 }}
                 >
-                    {stickyNavContent}
+                    {/* Hidden on Android while the overlay is active — prevents double-header */}
+                    <View style={{ opacity: Platform.OS === 'android' && isNavOverlay ? 0 : 1 }}
+                          pointerEvents={Platform.OS === 'android' && isNavOverlay ? 'none' : 'auto'}>
+                        {stickyNavContent}
+                    </View>
 
                     {/* Grid Header Row */}
                     <View style={[styles.headerRow, { borderBottomColor: theme.colors.border }]}>
@@ -321,6 +345,14 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    navOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 200,
+        elevation: 200,
     },
     headerRow: {
         flexDirection: 'row',
