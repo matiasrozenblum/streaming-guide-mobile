@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import {
     View, StyleSheet, Dimensions, ActivityIndicator,
-    TouchableOpacity, Text, RefreshControl, ScrollView, Platform,
+    TouchableOpacity, Text, RefreshControl, Platform,
     Animated as RNAnimated,
 } from 'react-native';
 import Animated, {
@@ -47,7 +47,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
 
     // --- Refs ---
     const horizontalScrollRef = useAnimatedRef<Animated.ScrollView>();
-    const mainVerticalRef = useRef<ScrollView>(null);
+    const mainVerticalRef = useRef<any>(null); // RNAnimated.ScrollView on Android, ScrollView on iOS
     const headerScrollRef = useAnimatedRef<Animated.ScrollView>();
 
     // --- Shared Values ---
@@ -208,7 +208,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 </RNAnimated.View>
             )}
 
-            <ScrollView
+            <RNAnimated.ScrollView
                 ref={mainVerticalRef}
                 onScroll={onAndroidVerticalScroll}
                 scrollEventThrottle={Platform.OS === 'android' ? 16 : undefined}
@@ -328,7 +328,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 {/* [4] Extra padding for tab bar + safe area */}
                 <View style={{ height: Platform.OS === 'android' ? 68 + insets.bottom + 16 : 68 + 16 }} />
 
-            </ScrollView>
+            </RNAnimated.ScrollView>
 
             {/* EN VIVO FAB */}
             {isFabVisible && (
