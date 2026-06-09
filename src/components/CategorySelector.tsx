@@ -19,16 +19,6 @@ export const CategorySelector = ({ categories, selectedCategory, onSelectCategor
     const scrollRef = useRef<ScrollView>(null);
     const isFirstRender = useRef(true);
 
-    // Restore scroll position from shared ref on mount (recovers position when overlay instance mounts)
-    useEffect(() => {
-        const savedX = scrollXRef?.current ?? 0;
-        if (savedX > 0) {
-            setTimeout(() => {
-                scrollRef.current?.scrollTo({ x: savedX, animated: false });
-            }, 50);
-        }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
     // Scroll to keep selected tab visible — skipped on initial mount to avoid overriding restoration
     useEffect(() => {
         if (isFirstRender.current) {
@@ -66,6 +56,7 @@ export const CategorySelector = ({ categories, selectedCategory, onSelectCategor
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                contentOffset={{ x: scrollXRef?.current ?? 0, y: 0 }}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
             >
