@@ -96,7 +96,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
         Platform.OS === 'android'
             ? RNAnimated.event(
                 [{ nativeEvent: { contentOffset: { y: scrollYAnim } } }],
-                { useNativeDriver: false },
+                { useNativeDriver: true },
             )
             : undefined,
         [scrollYAnim],
