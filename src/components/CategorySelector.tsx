@@ -16,9 +16,15 @@ const FIRST_TAB_WIDTH = layout.CHANNEL_LABEL_WIDTH_MOBILE; // 122px — matches 
 export const CategorySelector = ({ categories, selectedCategory, onSelectCategory }: Props) => {
     const theme = getTheme('dark');
     const scrollRef = useRef<ScrollView>(null);
+    const isFirstRender = useRef(true);
 
-    // Scroll to keep selected tab visible
+    // Scroll to keep selected tab visible — skipped on initial mount to avoid
+    // animating to x=0 when selectedCategory is null at first render.
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         if (!selectedCategory) {
             scrollRef.current?.scrollTo({ x: 0, animated: true });
             return;

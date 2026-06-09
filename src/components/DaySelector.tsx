@@ -28,10 +28,11 @@ const WEEK_DAYS: Day[] = [
 interface Props {
     selectedDate: string; // English day name or '' for today
     onSelectDate: (date: string) => void;
+    todayName?: string; // optional override so all instances (incl. Android overlay) use the same value
 }
 
-export const DaySelector = ({ selectedDate, onSelectDate }: Props) => {
-    const todayName = dayjs().locale('en').format('dddd').toLowerCase();
+export const DaySelector = ({ selectedDate, onSelectDate, todayName: todayNameProp }: Props) => {
+    const todayName = todayNameProp ?? dayjs().locale('en').format('dddd').toLowerCase();
     const activeDate = selectedDate || todayName;
 
     return (
