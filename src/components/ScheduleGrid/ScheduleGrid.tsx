@@ -108,7 +108,11 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
             isFirstCategoryChange.current = false;
             return;
         }
-        mainVerticalRef.current?.scrollTo({ y: 0, animated: true });
+        // Instant scroll (not animated) so we can synchronously reset scrollYAnim.
+        // Programmatic animated scrolls don't reliably fire onScroll with useNativeDriver:true,
+        // leaving scrollYAnim stale and the overlay mispositioned.
+        mainVerticalRef.current?.scrollTo({ y: 0, animated: false });
+        if (Platform.OS === 'android') scrollYAnim.setValue(0);
     }, [selectedCategoryId]);
 
     // --- Now line offset ---
