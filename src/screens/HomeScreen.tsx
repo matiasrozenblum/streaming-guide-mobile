@@ -264,10 +264,18 @@ export const HomeScreen = () => {
                 })
                 .map(s => ({ ...s, positionOffset: 24 * 60 }));
 
-            return {
-                ...ch,
-                schedules: [...daySchedules, ...overflowSchedules],
-            };
+            // Deduplicate by composite key: timezone conversion can shift two ART-day
+            // schedules with the same id (e.g. spanning virtual events) onto the same
+            // local day, producing duplicate React keys and broken rendering.
+            const seen = new Set<string>();
+            const schedules = [...daySchedules, ...overflowSchedules].filter(s => {
+                const key = `${s.id}_${s.positionOffset ?? 0}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            return { ...ch, schedules };
         })
         .filter(ch => ch.schedules.length > 0 || !ch.channel.show_only_when_scheduled);
 
