@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Analytics events: added `|| 'unknown'` fallback to `channel_name` in `streamer_service_click` event (FavoritesScreen)
 - BannerCarousel: replaced `pagingEnabled` with `snapToInterval` to fix previous banner bleeding on left edge during swipe
 - ProgramBlock: pass `channelName` as required prop from ProgramRow so analytics events always receive the real channel name
+- Android sticky nav: restored overlay for correct touch targets; overlay position driven by Animated.Value (native driver) for smooth scroll tracking with no jump or double-header
+- Android sticky nav: category row scroll position preserved when overlay activates; `Animated.timing(duration:0)` correctly resets overlay position after programmatic scroll-to-top on category change
+- iOS sticky nav: removed overlay (was never needed on iOS), eliminating category scroll reset and wrong-day highlight when banner scrolled away
+- Schedules: deduplicate by composite key after timezone localization to prevent React key collisions from spanning virtual events
 ### Removed
 
 ---
