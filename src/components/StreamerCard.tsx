@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Streamer, StreamingService } from '../types/streamer';
+import { ZapItem } from '../types/zap';
 import { getColorForChannel } from '../utils/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useVideoPlayer } from '../context/VideoPlayerContext';
@@ -14,9 +15,11 @@ interface Props {
     index: number;
     onToggleSubscription?: () => void;
     isSubscriptionLoading?: boolean;
+    zapList?: ZapItem[];
+    zapIndex?: number;
 }
 
-export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscriptionLoading }: Props) => {
+export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscriptionLoading, zapList, zapIndex }: Props) => {
     const { openVideo } = useVideoPlayer();
     const theme = getTheme('dark'); // TODO: Get from context
 
@@ -28,7 +31,7 @@ export const StreamerCard = ({ streamer, index, onToggleSubscription, isSubscrip
             platform: service,
         });
         if (service === 'youtube' || service === 'twitch' || service === 'kick') {
-            openVideo(url, service);
+            openVideo(url, service, { zapList, zapIndex: zapIndex ?? 0 });
         } else {
             Linking.openURL(url);
         }

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ChannelWithSchedules } from '../../types/channel';
 import { Schedule } from '../../types/schedule';
+import { ZapItem } from '../../types/zap';
 import { ProgramBlock } from './ProgramBlock';
 import { getColorForChannel } from '../../utils/colors';
 import { layout } from '../../theme/tokens';
@@ -16,6 +17,8 @@ interface Props {
     totalWidth: number;
     isViewingToday?: boolean;
     isPastDay?: boolean;
+    zapList?: ZapItem[];
+    zapIndex?: number;
 }
 
 const parseTimeToMinutes = (timeStr: string): number => {
@@ -117,7 +120,7 @@ const computeLaneAssignments = (
     return result;
 };
 
-export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWidth, isViewingToday, isPastDay }: Props) => {
+export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWidth, isViewingToday, isPastDay, zapList, zapIndex }: Props) => {
     const channelColor = getColorForChannel(index, 'dark');
     // Split long programs into segments before overlap detection so each segment
     // is narrow enough to show its title within the visible viewport.
@@ -161,6 +164,8 @@ export const ProgramRow = ({ channel, index, pixelsPerMinute, nowOffset, totalWi
                             totalMultipleStreams={totalLanes}
                             isViewingToday={isViewingToday}
                             isPastDay={isPastDay}
+                            zapList={zapList}
+                            zapIndex={zapIndex}
                         />
                     );
                 })}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TouchableWithoutFeedback, ScrollView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Schedule } from '../../types/schedule';
+import { ZapItem } from '../../types/zap';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
@@ -25,9 +26,11 @@ interface Props {
     totalMultipleStreams?: number;
     isViewingToday?: boolean;
     isPastDay?: boolean;
+    zapList?: ZapItem[];
+    zapIndex?: number;
 }
 
-export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1, isViewingToday = true, isPastDay = false }: Props) => {
+export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelColor, multipleStreamsIndex = 0, totalMultipleStreams = 1, isViewingToday = true, isPastDay = false, zapList, zapIndex }: Props) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(schedule.subscribed);
     const [bellLoading, setBellLoading] = useState(false);
@@ -345,7 +348,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
                                                         program_name: schedule.program.name,
                                                         channel_name: channelName,
                                                     });
-                                                    openVideo(schedule.program.stream_url, service);
+                                                    openVideo(schedule.program.stream_url, service, { zapList, zapIndex: zapIndex ?? 0 });
                                                 }
                                             }}
                                         >
