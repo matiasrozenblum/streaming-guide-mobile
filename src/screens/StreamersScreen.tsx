@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLoginModal } from '../context/LoginModalContext';
 import { View, Text, StyleSheet, ActivityIndicator, RefreshControl, Alert, Linking, Platform } from 'react-native';
@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Header } from '../components/Header';
 import { Streamer } from '../types/streamer';
+import { ZapItem } from '../types/zap';
 import { StreamerService } from '../services/streamer.service';
 import { StreamerCard } from '../components/StreamerCard';
 import { requestNotificationPermission } from '../hooks/usePushNotifications';
@@ -18,6 +19,23 @@ export const StreamersScreen = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [subscriptionLoading, setSubscriptionLoading] = useState<Record<number, boolean>>({});
+
+    const zapList = useMemo((): ZapItem[] =>
+        streamers.map(s => {
+            const liveSvc = s.services.find(sv => s.active_services?.includes(sv.service))
+                ?? s.services[0];
+            const svcType = liveSvc?.service;
+            return {
+                id: s.id,
+                name: s.name,
+                logoUrl: s.logo_url,
+                backgroundColor: null,
+                videoUrl: liveSvc?.url ?? null,
+                service: (svcType === 'twitch' || svcType === 'kick' || svcType === 'youtube')
+                    ? svcType : null,
+                isLive: s.is_live,
+            };
+        }), [streamers]);
 
     const fetchStreamers = async () => {
         try {
@@ -137,6 +155,8 @@ export const StreamersScreen = () => {
             index={index}
             onToggleSubscription={() => handleToggleSubscription(item)}
             isSubscriptionLoading={!!subscriptionLoading[item.id]}
+            zapList={zapList}
+            zapIndex={index}
         />
     );
 

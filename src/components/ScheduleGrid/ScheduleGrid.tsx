@@ -12,6 +12,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import { ChannelWithSchedules } from '../../types/channel';
+import { ZapItem } from '../../types/zap';
 import { ProgramRow } from './ProgramRow';
 import { ChannelLogo } from './ChannelLogo';
 import { TimeHeaderMarkers } from './TimeHeader';
@@ -101,6 +102,25 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
             : undefined,
         [scrollYAnim],
     );
+
+    const zapList = useMemo((): ZapItem[] =>
+        channels.map(({ channel, schedules }) => {
+            const live = schedules.find(s => s.program.is_live && s.program.stream_url);
+            const url = live?.program.stream_url ?? null;
+            const service: ZapItem['service'] = url?.includes('twitch') ? 'twitch'
+                : url?.includes('kick') ? 'kick'
+                : url ? 'youtube' : null;
+            return {
+                id: channel.id,
+                name: channel.name,
+                logoUrl: channel.logo_url,
+                backgroundColor: channel.background_color ?? null,
+                videoUrl: url,
+                service,
+                isLive: !!live,
+                programName: live?.program.name ?? null,
+            };
+        }), [channels]);
 
     // --- Scroll to top when category changes ---
     useEffect(() => {
@@ -323,6 +343,8 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                                         totalWidth={TOTAL_WIDTH}
                                         isViewingToday={isViewingToday}
                                         isPastDay={isPastDay}
+                                        zapList={zapList}
+                                        zapIndex={index}
                                     />
                                 ))}
                             </View>
