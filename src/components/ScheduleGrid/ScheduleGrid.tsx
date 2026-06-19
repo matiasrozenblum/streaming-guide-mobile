@@ -119,6 +119,7 @@ export const ScheduleGrid = ({ channels, loading, bannerContent, stickyNavConten
                 service,
                 isLive: !!live,
                 programName: live?.program.name ?? null,
+                kind: 'channel',
             };
         }), [channels]);
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
     View, StyleSheet, Dimensions, TouchableOpacity, PanResponder,
-    Animated, Image, Text, ScrollView,
+    Animated, Image, Text, ScrollView, Pressable,
 } from 'react-native';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { WebView } from 'react-native-webview';
@@ -212,9 +212,11 @@ export const MobileVideoPlayer = () => {
     const bottomTranslateAnim = zapAnim.interpolate({ inputRange: [0, 1], outputRange: [bottomCardHeight, 0] });
 
     const renderRow = (item: ZapItemWithIdx) => {
+        const isStreamer = item.kind === 'streamer';
         const gradient = item.backgroundColor ? parseGradient(item.backgroundColor) : null;
         const bgColor = sanitizeBgColor(item.backgroundColor);
         const pts = gradient ? angleToPoints(gradient.angle) : null;
+        const logoStyle = isStreamer ? styles.rowLogoSquare : styles.rowLogo;
 
         const logoInner = item.logoUrl ? (
             isSvgUrl(item.logoUrl) ? (
@@ -223,7 +225,7 @@ export const MobileVideoPlayer = () => {
                 <Image
                     source={{ uri: item.logoUrl, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile; rv:88.0) Gecko/88.0 Firefox/88.0' } }}
                     style={{ width: '100%', height: '100%' }}
-                    resizeMode="contain"
+                    resizeMode={isStreamer ? 'cover' : 'contain'}
                 />
             )
         ) : (
@@ -235,18 +237,18 @@ export const MobileVideoPlayer = () => {
                 colors={gradient!.colors as [string, string, ...string[]]}
                 start={pts.start}
                 end={pts.end}
-                style={styles.rowLogo}
+                style={logoStyle}
             >
                 {logoInner}
             </LinearGradient>
         ) : (
-            <View style={[styles.rowLogo, { backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[logoStyle, { backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }]}>
                 {logoInner}
             </View>
         );
 
         return (
-            <TouchableOpacity
+            <Pressable
                 key={item.id}
                 style={[styles.channelRow, item.isLive && styles.channelRowLive]}
                 onPress={() => {
@@ -257,17 +259,21 @@ export const MobileVideoPlayer = () => {
                         target_channel: item.name,
                     });
                 }}
-                activeOpacity={0.75}
             >
-                {logoEl}
-                <View style={styles.rowTextBlock}>
-                    <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
-                    {item.programName && (
-                        <Text style={styles.rowProgram} numberOfLines={1}>{item.programName}</Text>
-                    )}
-                </View>
-                {item.isLive && <Text style={styles.rowLive}>● EN VIVO</Text>}
-            </TouchableOpacity>
+                {({ pressed }) => (
+                    <>
+                        {pressed && <View style={styles.rowPressOverlay} pointerEvents="none" />}
+                        {logoEl}
+                        <View style={styles.rowTextBlock}>
+                            <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+                            {item.programName && (
+                                <Text style={styles.rowProgram} numberOfLines={1}>{item.programName}</Text>
+                            )}
+                        </View>
+                        {item.isLive && <Text style={styles.rowLive}>● EN VIVO</Text>}
+                    </>
+                )}
+            </Pressable>
         );
     };
 
@@ -391,16 +397,18 @@ export const MobileVideoPlayer = () => {
                     {hasZap && currentItem ? (
                         <View style={styles.channelInfo}>
                             {currentItem.logoUrl ? (() => {
+                                const isStreamer = currentItem.kind === 'streamer';
+                                const logoStyle = isStreamer ? styles.channelInfoLogoSquare : styles.channelInfoLogo;
                                 const gradient = currentItem.backgroundColor ? parseGradient(currentItem.backgroundColor) : null;
                                 const bgColor = sanitizeBgColor(currentItem.backgroundColor);
                                 const pts = gradient ? angleToPoints(gradient.angle) : null;
                                 const img = isSvgUrl(currentItem.logoUrl!)
                                     ? <SvgUri uri={currentItem.logoUrl!} width="100%" height="100%" />
-                                    : <Image source={{ uri: currentItem.logoUrl!, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile; rv:88.0) Gecko/88.0 Firefox/88.0' } }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />;
+                                    : <Image source={{ uri: currentItem.logoUrl!, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile; rv:88.0) Gecko/88.0 Firefox/88.0' } }} style={{ width: '100%', height: '100%' }} resizeMode={isStreamer ? 'cover' : 'contain'} />;
                                 return pts ? (
-                                    <LinearGradient colors={gradient!.colors as [string, string, ...string[]]} start={pts.start} end={pts.end} style={styles.channelInfoLogo}>{img}</LinearGradient>
+                                    <LinearGradient colors={gradient!.colors as [string, string, ...string[]]} start={pts.start} end={pts.end} style={logoStyle}>{img}</LinearGradient>
                                 ) : (
-                                    <View style={[styles.channelInfoLogo, { backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }]}>{img}</View>
+                                    <View style={[logoStyle, { backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }]}>{img}</View>
                                 );
                             })() : null}
                             <Text style={styles.channelInfoName} numberOfLines={1}>{currentItem.name}</Text>
@@ -542,8 +550,26 @@ const styles = StyleSheet.create({
     channelRowLive: {
         backgroundColor: 'rgba(255,255,255,0.08)',
     },
+    // Uniform darkening overlay on top of the whole row (logo included) for press feedback —
+    // avoids the seam that activeOpacity causes against the logo's solid background fill
+    rowPressOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        borderRadius: 10,
+    },
 rowLogo: {
         width: 72,
+        height: 36,
+        borderRadius: 6,
+        overflow: 'hidden',
+    },
+    // Streamer logos are square (1:1), matching StreamerCard's imageSection ratio
+    rowLogoSquare: {
+        width: 36,
         height: 36,
         borderRadius: 6,
         overflow: 'hidden',
@@ -602,6 +628,12 @@ rowLogo: {
     },
     channelInfoLogo: {
         width: 44,
+        height: 22,
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    channelInfoLogoSquare: {
+        width: 22,
         height: 22,
         borderRadius: 4,
         overflow: 'hidden',

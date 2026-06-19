@@ -22,8 +22,9 @@ export const StreamersScreen = () => {
 
     const zapList = useMemo((): ZapItem[] =>
         streamers.map(s => {
-            const liveSvc = s.services.find(sv => s.active_services?.includes(sv.service))
-                ?? s.services[0];
+            const liveSvc = s.is_live
+                ? (s.services.find(sv => s.active_services?.includes(sv.service)) ?? s.services[0])
+                : undefined;
             const svcType = liveSvc?.service;
             return {
                 id: s.id,
@@ -34,6 +35,7 @@ export const StreamersScreen = () => {
                 service: (svcType === 'twitch' || svcType === 'kick' || svcType === 'youtube')
                     ? svcType : null,
                 isLive: s.is_live,
+                kind: 'streamer',
             };
         }), [streamers]);
 

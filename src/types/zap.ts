@@ -7,4 +7,6 @@ export interface ZapItem {
     service: 'youtube' | 'twitch' | 'kick' | null;
     isLive: boolean;
     programName?: string | null;
+    /** Streamer logos are square (1:1, cover); channel logos are rectangular (2:1, contain) */
+    kind?: 'channel' | 'streamer';
 }
