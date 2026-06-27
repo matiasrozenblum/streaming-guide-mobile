@@ -69,14 +69,10 @@ export const authApi = {
     gender?: string;
   }) => {
     const deviceId = await DeviceService.getDeviceId();
-    const platform = await getPlatform();
-    const appVersion = Application.nativeApplicationVersion || '1.0.0';
 
     const response = await api.post('/auth/register', {
       ...data,
       deviceId,
-      platform,
-      appVersion,
     });
     return response.data;
   },
@@ -84,15 +80,11 @@ export const authApi = {
   // Login existing user
   login: async (email: string, password: string) => {
     const deviceId = await DeviceService.getDeviceId();
-    const platform = await getPlatform();
-    const appVersion = Application.nativeApplicationVersion || '1.0.0';
 
     const response = await api.post('/auth/login', {
       email,
       password,
       deviceId,
-      platform,
-      appVersion,
     });
     return response.data;
   },
@@ -112,14 +104,10 @@ export const authApi = {
     birthDate: string;
   }) => {
     const deviceId = await DeviceService.getDeviceId();
-    const platform = await getPlatform();
-    const appVersion = Application.nativeApplicationVersion || '1.0.0';
 
     const response = await api.post('/auth/complete-profile', {
       ...data,
       deviceId,
-      platform,
-      appVersion,
     });
     return response.data;
   },
