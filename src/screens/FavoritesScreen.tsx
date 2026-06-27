@@ -20,11 +20,13 @@ interface Subscription {
         name: string;
         description?: string;
         logo_url?: string;
+        is_visible: boolean;
+        has_active_schedules: boolean;
         channel: {
             id: number;
             name: string;
             logo_url?: string;
-            background_color?: string; // Add background_color
+            background_color?: string;
         };
     };
     isActive: boolean;
@@ -39,6 +41,7 @@ const SubscriptionTile = ({
     imageUrl,
     imageColor,
     isStreamer,
+    isInactive,
     activeDeleteId,
     onToggleDelete,
     onDelete,
@@ -53,6 +56,7 @@ const SubscriptionTile = ({
     imageUrl?: string,
     imageColor?: string,
     isStreamer?: boolean,
+    isInactive?: boolean,
     activeDeleteId: string | number | null,
     onToggleDelete: (id: string | number) => void,
     onDelete: () => void,
@@ -75,10 +79,14 @@ const SubscriptionTile = ({
     return (
         <Pressable
             onPress={handlePress}
-            style={styles.tileContainer}
+            style={[styles.tileContainer, isInactive && { opacity: 0.55 }]}
         >
             {/* Avatar Section */}
-            <View style={[styles.avatarContainer, { backgroundColor: imageColor || '#1e293b' }]}>
+            <View style={[
+                styles.avatarContainer,
+                { backgroundColor: imageColor || '#1e293b' },
+                isInactive && { filter: [{ grayscale: 1 }] } as any,
+            ]}>
                 {imageUrl ? (
                     imageUrl.toLowerCase().endsWith('.svg') || imageUrl.includes('.svg?') ? (
                         <View style={isStreamer ? styles.streamerAvatarImage : styles.avatarImage}>
@@ -111,6 +119,13 @@ const SubscriptionTile = ({
                 </View>
 
                 {subtitle && <View style={styles.subtitleContainer}>{subtitle}</View>}
+
+                {isInactive && (
+                    <View style={styles.inactiveBadge}>
+                        <MaterialCommunityIcons name="pause-circle-outline" size={11} color="#64748b" />
+                        <Text style={styles.inactiveBadgeText}>Sin emisión</Text>
+                    </View>
+                )}
 
                 {/* Services Row */}
                 {services && services.length > 0 && (
@@ -268,7 +283,17 @@ export const FavoritesScreen = () => {
                     {isProgramsExpanded && (
                         <>
                             <View style={styles.grid}>
-                                {subscriptions.map(sub => (
+                                {[...subscriptions]
+                                    .sort((a, b) => {
+                                        const aInactive = !a.program.is_visible || !a.program.has_active_schedules;
+                                        const bInactive = !b.program.is_visible || !b.program.has_active_schedules;
+                                        if (aInactive && !bInactive) return 1;
+                                        if (!aInactive && bInactive) return -1;
+                                        return 0;
+                                    })
+                                    .map(sub => {
+                                        const isInactive = !sub.program.is_visible || !sub.program.has_active_schedules;
+                                        return (
                                     <View key={sub.id} style={styles.gridItem}>
                                         <SubscriptionTile
                                             id={sub.id}
@@ -279,9 +304,11 @@ export const FavoritesScreen = () => {
                                             imageUrl={sub.program.channel.logo_url}
                                             imageColor={sub.program.channel.background_color || '#ffffff'}
                                             onDelete={() => handleDelete(sub.id)}
+                                            isInactive={isInactive}
                                         />
                                     </View>
-                                ))}
+                                        );
+                                    })}
                             </View>
                             {subscriptions.length === 0 && <Text style={styles.emptyText}>No tienes programas favoritos.</Text>}
                         </>
@@ -400,5 +427,17 @@ const styles = StyleSheet.create({
         right: 0,
         margin: 0,
         zIndex: 10
-    }
+    },
+
+    inactiveBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        marginTop: 3,
+    },
+    inactiveBadgeText: {
+        color: '#64748b',
+        fontSize: 10,
+        fontWeight: '500',
+    },
 });
