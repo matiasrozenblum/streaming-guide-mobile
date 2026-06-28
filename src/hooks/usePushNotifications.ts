@@ -67,6 +67,9 @@ export function getFcmToken(): string | null {
 export function usePushNotifications() {
     const { session, isAuthenticated } = useAuth();
     const registeredRef = useRef(false);
+    // Keep a ref to session so callbacks set up with [] deps can access the current value
+    const sessionRef = useRef(session);
+    useEffect(() => { sessionRef.current = session; }, [session]);
 
     // Effect 1: Setup Firebase messaging (channel, handlers, silent permission check — NO dialog)
     useEffect(() => {
@@ -121,11 +124,21 @@ export function usePushNotifications() {
                 }
             }
 
-            // Listen for token refresh
-            unsubscribeTokenRefresh = messaging().onTokenRefresh((newToken) => {
+            // Listen for token refresh — re-register immediately so the backend
+            // never holds a stale token (Effect 2 won't re-run if auth state didn't change)
+            unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
                 console.log('[Push] FCM Token refreshed:', newToken?.substring(0, 20) + '...');
                 fcmToken = newToken;
                 registeredRef.current = false;
+                if (sessionRef.current?.accessToken) {
+                    try {
+                        await DeviceService.registerFCM(newToken);
+                        registeredRef.current = true;
+                        console.log('[Push] Re-registered new FCM token with backend');
+                    } catch (error: any) {
+                        console.error('[Push] Failed to re-register new FCM token:', error?.message || error);
+                    }
+                }
             });
 
             // Foreground message handler

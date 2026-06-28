@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const USER_PROFILE_KEY = 'user_profile';
 
 // Generate or retrieve device ID
 async function getDeviceId(): Promise<string> {
@@ -93,10 +94,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
 
         if (accessToken && refreshToken) {
+          // Restore session immediately from cached profile (no network wait)
+          const cachedProfileJson = await SecureStore.getItemAsync(USER_PROFILE_KEY);
+          if (cachedProfileJson) {
+            const cachedUser: User = JSON.parse(cachedProfileJson);
+            setSession({ user: cachedUser, accessToken, refreshToken });
+            if (cachedUser.role === 'admin') {
+              await setAnalyticsAdminMode(true);
+            }
+            setIsLoading(false);
+          }
+
+          // Refresh profile from network in background
           const user = await fetchUserProfile(accessToken);
           if (user) {
+            await SecureStore.setItemAsync(USER_PROFILE_KEY, JSON.stringify(user));
             setSession({ user, accessToken, refreshToken });
-            // Disable analytics for admin users to avoid polluting metrics
             if (user.role === 'admin') {
               await setAnalyticsAdminMode(true);
             }
@@ -104,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Invalid token, clear storage
             await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
             await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+            await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
+            setSession(null);
           }
         }
       } catch (error) {
@@ -125,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch user profile
       const user = await fetchUserProfile(accessToken);
       if (user) {
+        await SecureStore.setItemAsync(USER_PROFILE_KEY, JSON.stringify(user));
         setSession({ user, accessToken, refreshToken });
 
         // Disable analytics for admin users to avoid polluting metrics
@@ -159,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear tokens from secure storage
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
       setSession(null);
       await setAnalyticsAdminMode(false);
       await trackEvent('logout_success');

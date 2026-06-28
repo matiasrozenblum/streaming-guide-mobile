@@ -173,39 +173,8 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
     if (isLive) bgOpacity = 0.3;
     else if (isPast) bgOpacity = 0.05;
 
-    const styleOverride = schedule.program.style_override;
-
-    // Style override colors
-    const getOverrideStyles = () => {
-        if (styleOverride === 'boca') {
-            return {
-                bg: `rgba(21,101,192,${bgOpacity})`,
-                border: isPast ? 'rgba(21,101,192,0.4)' : 'rgb(21,101,192)',
-                textColor: '#FFFFFF',
-                bandColor: `rgba(253,206,3,${bgOpacity})`,
-                bandBorder: 'rgb(253,206,3)',
-                bandRotation: '0deg',
-                bandHeight: '44%',
-            };
-        }
-        if (styleOverride === 'river') {
-            return {
-                bg: `rgba(255,255,255,${bgOpacity})`,
-                border: isPast ? 'rgba(255,255,255,0.4)' : 'rgb(255,255,255)',
-                textColor: '#FFFFFF',
-                bandColor: `rgba(238,19,41,${bgOpacity})`,
-                bandBorder: 'rgb(238,19,41)',
-                bandRotation: '-20deg',
-                bandHeight: '40%',
-            };
-        }
-        return null;
-    };
-
-    const overrideStyles = getOverrideStyles();
-
-    const backgroundColor = overrideStyles ? overrideStyles.bg : alpha(baseColor, bgOpacity);
-    const borderColor = overrideStyles ? overrideStyles.border : (isPast ? alpha(baseColor, 0.3) : baseColor);
+    const backgroundColor = alpha(baseColor, bgOpacity);
+    const borderColor = isPast ? alpha(baseColor, 0.3) : baseColor;
 
     // Overlap stacking: use pixel values (not percentages) so that flex children
     // (content with justifyContent:'center') resolve height correctly on both iOS and Android.
@@ -231,25 +200,6 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
                 activeOpacity={0.7}
                 onPress={() => setModalVisible(true)}
             >
-                {/* Style override indicator (Boca/River):
-                    - Full band when there is enough vertical space (single stream)
-                    - Compact dot when in overlapping/stacked mode */}
-                {overrideStyles && totalMultipleStreams === 1 && (
-                    <View style={[
-                        styles.overrideBand,
-                        {
-                            backgroundColor: overrideStyles.bandColor,
-                            borderColor: overrideStyles.bandBorder,
-                            borderWidth: 1,
-                            height: overrideStyles.bandHeight as any,
-                            transform: [{ rotate: overrideStyles.bandRotation }],
-                        }
-                    ]} />
-                )}
-                {overrideStyles && totalMultipleStreams > 1 && (
-                    <View style={styles.overrideDot} />
-                )}
-
                 {/* LIVE Badge — only when actually live today */}
                 {isLive && (
                     <View style={styles.liveBadge}>
@@ -271,7 +221,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
 
                 <View style={[styles.content, totalMultipleStreams > 1 && styles.contentCompact]}>
                     <Text
-                        style={[styles.title, { color: overrideStyles ? overrideStyles.textColor : baseColor }]}
+                        style={[styles.title, { color: baseColor }]}
                         numberOfLines={totalMultipleStreams > 1 ? 1 : 2}
                         includeFontPadding={false}
                     >
@@ -281,7 +231,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
                     {/* Hide panelists when overlapping — not enough space in sub-row */}
                     {totalMultipleStreams === 1 && schedule.program.panelists && schedule.program.panelists.length > 0 && width > 120 && (
                         <Text
-                            style={[styles.panelists, { color: overrideStyles ? 'rgba(255,255,255,0.8)' : alpha(baseColor, 0.8) }]}
+                            style={[styles.panelists, { color: alpha(baseColor, 0.8) }]}
                             numberOfLines={2}
                             includeFontPadding={false}
                         >
@@ -447,26 +397,6 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 10,
         fontWeight: fontWeight.bold,
-    },
-    overrideDot: {
-        position: 'absolute',
-        top: 6,
-        left: 6,
-        width: 14,
-        height: 14,
-        borderRadius: 7,
-        backgroundColor: 'rgba(255, 152, 0, 0.5)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 152, 0, 1)',
-        zIndex: 5,
-    },
-    overrideBand: {
-        position: 'absolute',
-        top: '50%',
-        left: '-10%',
-        width: '120%',
-        zIndex: 1,
-        borderRadius: borderRadius.sm,
     },
     weeklyOverrideDot: {
         position: 'absolute',

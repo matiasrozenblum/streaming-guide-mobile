@@ -28,7 +28,6 @@ export interface Schedule {
             name: string;
             logo_url: string | null;
         };
-        style_override?: string | null;
     };
     isWeeklyOverride?: boolean;
     overrideType?: 'cancel' | 'time_change' | 'reschedule';
