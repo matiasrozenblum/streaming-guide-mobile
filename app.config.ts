@@ -118,6 +118,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             supportsTablet: false,
             bundleIdentifier: getUniqueIdentifier(),
             googleServicesFile: IS_STAGING ? "./GoogleService-Info.staging.plist" : "./GoogleService-Info.plist",
+            buildNumber: "37",
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
                 CFBundleDisplayName: getAppName(),
@@ -133,7 +134,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             googleServicesFile: "./google-services.json",
             edgeToEdgeEnabled: true,
             predictiveBackGestureEnabled: false,
-            versionCode: 35,
+            versionCode: 37,
         },
         web: {
             favicon: "./assets/favicon.png"
