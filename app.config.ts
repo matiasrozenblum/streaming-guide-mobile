@@ -132,7 +132,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             package: getUniqueIdentifier(),
             googleServicesFile: "./google-services.json",
             edgeToEdgeEnabled: true,
-            predictiveBackGestureEnabled: false
+            predictiveBackGestureEnabled: false,
+            versionCode: 35,
         },
         web: {
             favicon: "./assets/favicon.png"
