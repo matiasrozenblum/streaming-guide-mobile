@@ -253,10 +253,16 @@ export const MobileVideoPlayer = () => {
                 style={[styles.channelRow, item.isLive && styles.channelRowLive]}
                 onPress={() => {
                     zapTo(item.originalIdx);
-                    trackEvent('zap_channel', {
+                    trackEvent('zap_use', {
                         direction: item.originalIdx < zapIndex ? 'previous' : 'next',
-                        service,
-                        target_channel: item.name,
+                        from_name: zapList[zapIndex]?.name ?? null,
+                        from_kind: zapList[zapIndex]?.kind ?? 'channel',
+                        from_service: service,
+                        target_name: item.name,
+                        target_kind: item.kind ?? 'channel',
+                        target_service: item.service,
+                        target_program: item.programName ?? null,
+                        target_is_live: item.isLive,
                     });
                 }}
             >
