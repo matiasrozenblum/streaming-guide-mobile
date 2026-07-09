@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import { userApi, authApi } from '../services/api';
+import { tokenEvents } from '../services/tokenEvents';
 import { DeviceService } from '../services/device.service';
 import { trackEvent, identifyUser, resetAnalytics, setAnalyticsAdminMode } from '../lib/analytics';
 
@@ -129,6 +130,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     loadSession();
+
+    // When the 401 interceptor exhausts the refresh token, force logout here
+    const handleForcedLogout = () => {
+      setSession(null);
+    };
+    tokenEvents.on('logout', handleForcedLogout);
+    return () => tokenEvents.off('logout', handleForcedLogout);
   }, []);
 
   const login = async (accessToken: string, refreshToken: string) => {

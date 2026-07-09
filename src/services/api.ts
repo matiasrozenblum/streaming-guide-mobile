@@ -1,7 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
+import * as SecureStore from 'expo-secure-store';
 import { getPlatform } from '../context/AuthContext';
 import { DeviceService } from './device.service';
 import * as Application from 'expo-application';
+import { tokenEvents } from './tokenEvents';
 
 import Constants from 'expo-constants';
 
@@ -19,7 +21,7 @@ export const api: AxiosInstance = axios.create({
   },
 });
 
-// Add device info to all requests
+// Add device info and JWT to all requests
 api.interceptors.request.use(async (config) => {
   const t = Date.now();
   const deviceId = await DeviceService.getDeviceId();
@@ -30,6 +32,14 @@ api.interceptors.request.use(async (config) => {
   config.headers['X-Platform'] = platform;
   config.headers['X-App-Version'] = appVersion;
 
+  // Inject JWT if available and not already set by the caller
+  if (!config.headers['Authorization']) {
+    const accessToken = await SecureStore.getItemAsync('access_token');
+    if (accessToken) {
+      config.headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+  }
+
   const interceptorTime = Date.now() - t;
   if (interceptorTime > 50) {
     console.log(`[Perf] Interceptor overhead for ${config.url}: ${interceptorTime}ms`);
@@ -37,6 +47,71 @@ api.interceptors.request.use(async (config) => {
 
   return config;
 });
+
+// 401 response interceptor: silent token refresh with request queue
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
+
+const processQueue = (error: unknown, token: string | null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) reject(error);
+    else resolve(token as string);
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Skip refresh logic for auth endpoints (login, register, refresh itself)
+    const isAuthEndpoint = originalRequest?.url?.startsWith('/auth/');
+
+    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = await SecureStore.getItemAsync('refresh_token');
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const response = await api.post('/auth/refresh', null, {
+          headers: { Authorization: `Bearer ${refreshToken}` },
+        });
+        const { access_token, refresh_token } = response.data;
+
+        await SecureStore.setItemAsync('access_token', access_token);
+        await SecureStore.setItemAsync('refresh_token', refresh_token);
+
+        processQueue(null, access_token);
+
+        originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        await SecureStore.deleteItemAsync('access_token');
+        await SecureStore.deleteItemAsync('refresh_token');
+        await SecureStore.deleteItemAsync('user_profile');
+        tokenEvents.emit('logout');
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 // Auth API endpoints
 export const authApi = {
@@ -114,8 +189,8 @@ export const authApi = {
 
   // Refresh access token
   refreshToken: async (refreshToken: string) => {
-    const response = await api.post('/auth/refresh', {
-      refresh_token: refreshToken,
+    const response = await api.post('/auth/refresh', null, {
+      headers: { Authorization: `Bearer ${refreshToken}` },
     });
     return response.data;
   },
