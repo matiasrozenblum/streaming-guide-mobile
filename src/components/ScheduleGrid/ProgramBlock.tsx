@@ -331,9 +331,9 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
                                             <ActivityIndicator size={20} color={theme.colors.primary} />
                                         ) : (
                                             <MaterialCommunityIcons
-                                                name={isSubscribed ? 'bell-ring' : 'bell-outline'}
+                                                name={isAuthenticated && isSubscribed ? 'bell-ring' : 'bell-outline'}
                                                 size={24}
-                                                color={isSubscribed ? theme.colors.primary : theme.colors.textSecondary}
+                                                color={isAuthenticated && isSubscribed ? theme.colors.primary : theme.colors.textSecondary}
                                             />
                                         )}
                                     </TouchableOpacity>
