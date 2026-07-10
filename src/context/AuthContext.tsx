@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
@@ -65,6 +65,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /**
+   * Single source of truth for tearing down a session. EVERY logout path
+   * (explicit logout, 401 interceptor exhausting the refresh token, a failed
+   * manual refresh) must go through here so the device always stops receiving
+   * push notifications. Never clear a session anywhere else.
+   */
+  const clearSession = useCallback(async () => {
+    // Best-effort: stop this device from receiving push notifications.
+    // The unsubscribe endpoint only needs the deviceId, so it works even
+    // after tokens are gone.
+    try {
+      await DeviceService.unregisterFCM();
+    } catch (e) {
+      console.warn('[Auth] unregisterFCM during clearSession failed:', e);
+    }
+    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
+    setSession(null);
+    try {
+      await setAnalyticsAdminMode(false);
+      await resetAnalytics();
+    } catch {
+      // analytics errors must never block logout
+    }
+  }, []);
+
   // Fetch user profile with tokens
   const fetchUserProfile = async (accessToken: string): Promise<User | null> => {
     try {
@@ -109,18 +136,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Refresh profile from network in background
           const user = await fetchUserProfile(accessToken);
           if (user) {
+            // The 401 interceptor may have rotated tokens while fetching the
+            // profile — re-read the latest values so session state never holds
+            // a stale token (Causa #2).
+            const [latestAccess, latestRefresh] = await Promise.all([
+              SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+              SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
+            ]);
             await SecureStore.setItemAsync(USER_PROFILE_KEY, JSON.stringify(user));
-            setSession({ user, accessToken, refreshToken });
+            setSession({
+              user,
+              accessToken: latestAccess ?? accessToken,
+              refreshToken: latestRefresh ?? refreshToken,
+            });
             if (user.role === 'admin') {
               await setAnalyticsAdminMode(true);
             }
-          } else {
-            // Invalid token, clear storage
-            await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-            await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-            await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
-            setSession(null);
           }
+          // If fetchUserProfile failed we deliberately do NOT clear the session
+          // here (Causa #1):
+          //   - transient network error on cold start → keep the cached session,
+          //     the tokens are still valid (7-day access token).
+          //   - genuine auth failure (refresh token exhausted) → the 401
+          //     interceptor already deleted the tokens and emitted 'logout',
+          //     which runs clearSession(). No independent teardown needed.
         }
       } catch (error) {
         console.error('Error loading session:', error);
@@ -131,13 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     loadSession();
 
-    // When the 401 interceptor exhausts the refresh token, force logout here
+    // When the 401 interceptor exhausts the refresh token, tear down the
+    // session through clearSession so FCM is unregistered too (Causa #3).
     const handleForcedLogout = () => {
-      setSession(null);
+      void clearSession();
     };
     tokenEvents.on('logout', handleForcedLogout);
     return () => tokenEvents.off('logout', handleForcedLogout);
-  }, []);
+  }, [clearSession]);
 
   const login = async (accessToken: string, refreshToken: string) => {
     try {
@@ -177,31 +217,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      // Unregister FCM so this device stops receiving push notifications
-      await DeviceService.unregisterFCM();
-
-      // Clear tokens from secure storage
-      await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
-      setSession(null);
-      await setAnalyticsAdminMode(false);
+      // Track the explicit user-initiated logout before analytics is reset
       await trackEvent('logout_success');
-      await resetAnalytics();
-    } catch (error) {
-      console.error('Error during logout:', error);
+    } catch {
+      // ignore analytics failures
     }
+    await clearSession();
   };
 
   const refreshSession = async () => {
-    if (!session?.refreshToken) return;
+    // Always read the freshest refresh token from storage, never from session
+    // state (which could be stale — Causa #2).
+    const storedRefresh = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    if (!storedRefresh) return;
 
     try {
-      const data = await authApi.refreshToken(session.refreshToken);
+      const data = await authApi.refreshToken(storedRefresh);
       await login(data.access_token, data.refresh_token);
     } catch (error) {
       console.error('Error refreshing session:', error);
-      await logout();
+      await clearSession();
     }
   };
 

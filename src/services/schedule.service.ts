@@ -1,5 +1,4 @@
 import api from './api';
-import { DeviceService } from './device.service';
 import { ChannelWithSchedules } from '../types/channel';
 import { CacheService } from './cache.service';
 import { getNextMondayDate } from '../utils/dateUtils';
@@ -24,28 +23,26 @@ export const ScheduleService = {
      * Used for initial load — returns only today's schedules.
      */
     async getTodaySchedulesV2(): Promise<ChannelWithSchedules[]> {
-        const deviceId = await DeviceService.getDeviceId();
-        const response = await api.get(`/channels/with-schedules/today/v2?live_status=true&deviceId=${deviceId}`);
+        // subscribed is resolved from the JWT (auto-injected by the api interceptor).
+        // No deviceId: logged-out users must get subscribed:false.
+        const response = await api.get(`/channels/with-schedules/today/v2?live_status=true`);
         return response.data;
     },
 
     async getTodaySchedules(): Promise<ChannelWithSchedules[]> {
-        const deviceId = await DeviceService.getDeviceId();
-        const response = await api.get(`/channels/with-schedules/today?live_status=true&deviceId=${deviceId}`);
+        const response = await api.get(`/channels/with-schedules/today?live_status=true`);
         return response.data;
     },
 
     async getWeekSchedules(): Promise<ChannelWithSchedules[]> {
-        const deviceId = await DeviceService.getDeviceId();
-        const response = await api.get(`/channels/with-schedules/week?live_status=true&deviceId=${deviceId}`);
+        const response = await api.get(`/channels/with-schedules/week?live_status=true`);
         return response.data;
     },
 
     async getNextWeekMondaySchedules(): Promise<ChannelWithSchedules[]> {
         const nextMonday = getNextMondayDate();
-        const deviceId = await DeviceService.getDeviceId();
         const response = await api.get(
-            `/channels/with-schedules/week?weekStart=${nextMonday}&live_status=true&deviceId=${deviceId}`
+            `/channels/with-schedules/week?weekStart=${nextMonday}&live_status=true`
         );
         return response.data;
     },
@@ -57,11 +54,10 @@ export const ScheduleService = {
 
     async getSchedulesByDate(date: string): Promise<ChannelWithSchedules[]> {
         const dayName = dayjs(date).locale('en').format('dddd').toLowerCase();
-        const deviceId = await DeviceService.getDeviceId();
 
         console.log(`Fetching schedules for date: ${date} -> ${dayName}`);
 
-        const response = await api.get(`/channels/with-schedules?day=${dayName}&live_status=true&deviceId=${deviceId}`);
+        const response = await api.get(`/channels/with-schedules?day=${dayName}&live_status=true`);
         return response.data;
     },
 
