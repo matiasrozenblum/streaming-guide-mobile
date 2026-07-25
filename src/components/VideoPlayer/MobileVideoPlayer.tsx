@@ -12,6 +12,8 @@ import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { trackEvent } from '../../lib/analytics';
 import { ZapItem } from '../../types/zap';
+import { useZappingTooltip } from '../../hooks/useZappingTooltip';
+import { ZappingTooltip } from './ZappingTooltip';
 
 // Replicates the ChannelLogo background logic for zap list rows
 interface ParsedGradient { colors: string[]; angle: number; }
@@ -197,6 +199,8 @@ export const MobileVideoPlayer = () => {
         setPlayerKey(0);
     }, [youtubeVideoId, youtubePlaylistId]);
 
+    const { showPlayer, showPanel, markPlayerSeen, markPanelSeen } = useZappingTooltip();
+
     if (!isVisible || (!embedUrl && !youtubeVideoId && !youtubePlaylistId)) return null;
 
     const hasZap = !isMinimized && (channelsAbove.length > 0 || channelsBelow.length > 0);
@@ -253,6 +257,7 @@ export const MobileVideoPlayer = () => {
                 style={[styles.channelRow, item.isLive && styles.channelRowLive]}
                 onPress={() => {
                     zapTo(item.originalIdx);
+                    if (showPanel) markPanelSeen();
                     trackEvent('zap_use', {
                         direction: item.originalIdx < zapIndex ? 'previous' : 'next',
                         from_name: zapList[zapIndex]?.name ?? null,
@@ -346,6 +351,22 @@ export const MobileVideoPlayer = () => {
                             </Animated.View>
                         </View>
                     )}
+
+                    {/* Tooltip 2: zapping panel tutorial */}
+                    {hasZap && zapExpanded && showPanel && (
+                        <View style={{
+                            position: 'absolute',
+                            top: PLAYER_TOP + MODAL_HEIGHT + 4,
+                            left: PLAYER_LEFT,
+                            width: MODAL_WIDTH,
+                            zIndex: 10001,
+                        }}>
+                            <ZappingTooltip
+                                text="Estos son los canales en vivo. ¡Tocá uno para cambiar de canal!"
+                                onDismiss={markPanelSeen}
+                            />
+                        </View>
+                    )}
                 </View>
             )}
 
@@ -396,7 +417,10 @@ export const MobileVideoPlayer = () => {
                             icon="format-list-bulleted"
                             iconColor={zapExpanded ? '#3b82f6' : 'rgba(255,255,255,0.65)'}
                             size={18}
-                            onPress={toggleZapList}
+                            onPress={() => {
+                                toggleZapList();
+                                if (showPlayer) markPlayerSeen();
+                            }}
                             style={styles.controlButton}
                         />
                     )}
@@ -447,6 +471,16 @@ export const MobileVideoPlayer = () => {
                         />
                     </View>
                 </View>
+
+                {/* Tooltip 1: zapping discovery — overlays the video until dismissed */}
+                {!isMinimized && hasZap && showPlayer && !zapExpanded && (
+                    <View style={{ position: 'absolute', top: CONTROLS_HEIGHT + 4, left: 8, right: 8, zIndex: 10001 }}>
+                        <ZappingTooltip
+                            text="¿Sabías que podés hacer zapping? ¡Tocá el botón de la izquierda para ver los canales en vivo!"
+                            onDismiss={markPlayerSeen}
+                        />
+                    </View>
+                )}
 
                 {isMinimized && (
                     <TouchableOpacity

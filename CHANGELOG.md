@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.18] - 2026-07-25
+
+### Added
+- **Zapping tutorial — 2 tooltips de onboarding**: se muestran en la primera apertura del reproductor un tooltip que apunta al botón de zapping, y al abrir el panel de zapping un segundo tooltip que indica que se puede cambiar de canal tocando uno de los canales en vivo. Ambos se persisten en `AsyncStorage` (claves `tooltip_zapping_player_v1` y `tooltip_zapping_panel_v1`) y, si el usuario está autenticado, se sincronizan con el backend vía `POST /users/me/seen-features` para no repetirse en otros dispositivos.
+
+---
+
 ## [Unreleased]
 
 ### Added
