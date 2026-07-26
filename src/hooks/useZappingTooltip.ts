@@ -3,40 +3,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
-const KEYS = {
-  player: 'tooltip_zapping_player_v1',
-  panel: 'tooltip_zapping_panel_v1',
-} as const;
+const PLAYER_KEY = 'tooltip_zapping_player_v1';
 
 export function useZappingTooltip() {
   const { isAuthenticated } = useAuth();
   const [showPlayer, setShowPlayer] = useState(false);
-  const [showPanel, setShowPanel] = useState(false);
 
   useEffect(() => {
     const check = async () => {
-      const [playerSeen, panelSeen] = await Promise.all([
-        AsyncStorage.getItem(KEYS.player),
-        AsyncStorage.getItem(KEYS.panel),
-      ]);
+      const playerSeen = await AsyncStorage.getItem(PLAYER_KEY);
       if (!playerSeen) setShowPlayer(true);
-      if (!panelSeen) setShowPanel(true);
     };
     check();
   }, []);
 
-  const markSeen = useCallback(async (key: keyof typeof KEYS) => {
-    const storageKey = KEYS[key];
-    if (key === 'player') setShowPlayer(false);
-    else setShowPanel(false);
-    await AsyncStorage.setItem(storageKey, 'true');
+  const markPlayerSeen = useCallback(async () => {
+    setShowPlayer(false);
+    await AsyncStorage.setItem(PLAYER_KEY, 'true');
     if (isAuthenticated) {
-      api.post('/users/me/seen-features', { feature: storageKey }).catch(() => {});
+      api.post('/users/me/seen-features', { feature: PLAYER_KEY }).catch(() => {});
     }
   }, [isAuthenticated]);
 
-  const markPlayerSeen = useCallback(() => markSeen('player'), [markSeen]);
-  const markPanelSeen = useCallback(() => markSeen('panel'), [markSeen]);
-
-  return { showPlayer, showPanel, markPlayerSeen, markPanelSeen };
+  return { showPlayer, markPlayerSeen };
 }

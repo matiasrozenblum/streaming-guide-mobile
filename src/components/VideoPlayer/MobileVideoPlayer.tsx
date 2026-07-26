@@ -199,7 +199,7 @@ export const MobileVideoPlayer = () => {
         setPlayerKey(0);
     }, [youtubeVideoId, youtubePlaylistId]);
 
-    const { showPlayer, showPanel, markPlayerSeen, markPanelSeen } = useZappingTooltip();
+    const { showPlayer, markPlayerSeen } = useZappingTooltip();
 
     if (!isVisible || (!embedUrl && !youtubeVideoId && !youtubePlaylistId)) return null;
 
@@ -257,7 +257,6 @@ export const MobileVideoPlayer = () => {
                 style={[styles.channelRow, item.isLive && styles.channelRowLive]}
                 onPress={() => {
                     zapTo(item.originalIdx);
-                    if (showPanel) markPanelSeen();
                     trackEvent('zap_use', {
                         direction: item.originalIdx < zapIndex ? 'previous' : 'next',
                         from_name: zapList[zapIndex]?.name ?? null,
@@ -352,21 +351,6 @@ export const MobileVideoPlayer = () => {
                         </View>
                     )}
 
-                    {/* Tooltip 2: zapping panel tutorial */}
-                    {hasZap && zapExpanded && showPanel && (
-                        <View style={{
-                            position: 'absolute',
-                            top: PLAYER_TOP + MODAL_HEIGHT + 4,
-                            left: PLAYER_LEFT,
-                            width: MODAL_WIDTH,
-                            zIndex: 10001,
-                        }}>
-                            <ZappingTooltip
-                                text="Estos son los canales en vivo. ¡Tocá uno para cambiar de canal!"
-                                onDismiss={markPanelSeen}
-                            />
-                        </View>
-                    )}
                 </View>
             )}
 
@@ -472,16 +456,6 @@ export const MobileVideoPlayer = () => {
                     </View>
                 </View>
 
-                {/* Tooltip 1: zapping discovery — overlays the video until dismissed */}
-                {!isMinimized && hasZap && showPlayer && !zapExpanded && (
-                    <View style={{ position: 'absolute', top: CONTROLS_HEIGHT + 4, left: 8, right: 8, zIndex: 10001 }}>
-                        <ZappingTooltip
-                            text="¿Sabías que podés hacer zapping? ¡Tocá el botón de la izquierda para ver los canales en vivo!"
-                            onDismiss={markPlayerSeen}
-                        />
-                    </View>
-                )}
-
                 {isMinimized && (
                     <TouchableOpacity
                         onPress={() => { maximizeVideo(); trackEvent('maximize_youtube', { service, video_url: videoUrl }); }}
@@ -535,6 +509,32 @@ export const MobileVideoPlayer = () => {
                     ) : null}
                 </View>
             </Animated.View>
+
+            {/* Zapping tooltip: sits ABOVE the player, arrow points down at the zap button
+                (bottom-left). Rendered as a top-level sibling with a zIndex above the player
+                (10000) so the arrow shows where it dips over the player's top edge. Button
+                centre ≈ PLAYER_LEFT + 26 (player padding 8 + half of the ~36px IconButton),
+                so arrowLeft:16 places the arrow there. `bottom` anchors the bubble's bottom
+                edge just above the player top, letting it grow upward regardless of height. */}
+            {!isMinimized && hasZap && showPlayer && !zapExpanded && (
+                <View
+                    style={{
+                        position: 'absolute',
+                        bottom: SCREEN_HEIGHT - PLAYER_TOP - 2,
+                        left: PLAYER_LEFT,
+                        width: Math.min(300, MODAL_WIDTH * 0.85),
+                        zIndex: 10002,
+                    }}
+                    pointerEvents="box-none"
+                >
+                    <ZappingTooltip
+                        text="¿Sabías que podés hacer zapping? ¡Tocá acá!"
+                        onDismiss={markPlayerSeen}
+                        arrow="down"
+                        arrowLeft={16}
+                    />
+                </View>
+            )}
         </>
     );
 };

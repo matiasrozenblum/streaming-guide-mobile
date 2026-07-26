@@ -4,51 +4,86 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 interface ZappingTooltipProps {
   text: string;
   onDismiss: () => void;
+  /** 'down' renders a downward arrow at the bottom edge; 'none' renders no arrow. */
+  arrow?: 'down' | 'none';
+  /** Horizontal offset (px) of the down arrow from the tooltip's left edge. */
+  arrowLeft?: number;
   style?: object;
 }
 
-export const ZappingTooltip: React.FC<ZappingTooltipProps> = ({ text, onDismiss, style }) => (
-  <View style={[styles.container, style]} pointerEvents="box-none">
-    <View style={styles.content} pointerEvents="auto">
+const BG = '#334155'; // slate-700, matches web tooltip
+
+export const ZappingTooltip: React.FC<ZappingTooltipProps> = ({
+  text,
+  onDismiss,
+  arrow = 'none',
+  arrowLeft = 20,
+  style,
+}) => (
+  <View style={[styles.wrapper, style]} pointerEvents="box-none">
+    <View style={styles.bubble} pointerEvents="auto">
       <Text style={styles.text}>{text}</Text>
       <TouchableOpacity
         onPress={onDismiss}
+        style={styles.closeBtn}
         hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        activeOpacity={0.6}
+        activeOpacity={0.7}
       >
-        <Text style={styles.dismiss}>✕</Text>
+        <Text style={styles.closeIcon}>✕</Text>
       </TouchableOpacity>
     </View>
+    {arrow === 'down' && <View style={[styles.arrowDown, { left: arrowLeft }]} pointerEvents="none" />}
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(15,23,42,0.97)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.5)',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+  wrapper: {
+    position: 'relative',
   },
-  content: {
+  bubble: {
+    backgroundColor: BG,
+    borderRadius: 10,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 10,
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
   },
   text: {
     color: '#e2e8f0',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
     flex: 1,
   },
-  dismiss: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-    paddingTop: 1,
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  closeIcon: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  arrowDown: {
+    position: 'absolute',
+    bottom: -10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderTopWidth: 11,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: BG,
   },
 });
