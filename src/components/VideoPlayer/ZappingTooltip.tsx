@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontSize: 13,
     lineHeight: 20,
-    flex: 1,
+    flexShrink: 1,
   },
   closeBtn: {
     width: 28,

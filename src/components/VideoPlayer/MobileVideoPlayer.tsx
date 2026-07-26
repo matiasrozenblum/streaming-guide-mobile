@@ -201,6 +201,23 @@ export const MobileVideoPlayer = () => {
 
     const { showPlayer, markPlayerSeen } = useZappingTooltip();
 
+    // Pulsing blue ring on the zap button while the tooltip is showing (web parity).
+    const zapRingAnim = useRef(new Animated.Value(0)).current;
+    const highlightZap = showPlayer && !zapExpanded && !isMinimized;
+    useEffect(() => {
+        if (!highlightZap) return;
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(zapRingAnim, { toValue: 1, duration: 650, useNativeDriver: true }),
+                Animated.timing(zapRingAnim, { toValue: 0, duration: 650, useNativeDriver: true }),
+            ]),
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [highlightZap, zapRingAnim]);
+    const zapRingOpacity = zapRingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+    const zapRingScale = zapRingAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
+
     if (!isVisible || (!embedUrl && !youtubeVideoId && !youtubePlaylistId)) return null;
 
     const hasZap = !isMinimized && (channelsAbove.length > 0 || channelsBelow.length > 0);
@@ -397,19 +414,27 @@ export const MobileVideoPlayer = () => {
                 {/* Controls: zap toggle (far left) + channel info + min/close (right) */}
                 <View style={styles.controlsRow}>
                     {hasZap && (channelsAbove.length > 0 || channelsBelow.length > 0) && (
-                        <IconButton
-                            icon="format-list-bulleted"
-                            iconColor={zapExpanded ? '#3b82f6' : 'rgba(255,255,255,0.65)'}
-                            size={18}
-                            onPress={() => {
-                                toggleZapList();
-                                if (showPlayer) markPlayerSeen();
-                            }}
-                            style={styles.controlButton}
-                        />
+                        <View style={styles.zapBtnWrap}>
+                            {highlightZap && (
+                                <Animated.View
+                                    pointerEvents="none"
+                                    style={[styles.zapRing, { opacity: zapRingOpacity, transform: [{ scale: zapRingScale }] }]}
+                                />
+                            )}
+                            <IconButton
+                                icon="format-list-bulleted"
+                                iconColor={(highlightZap || zapExpanded) ? '#3b82f6' : 'rgba(255,255,255,0.65)'}
+                                size={18}
+                                onPress={() => {
+                                    toggleZapList();
+                                    if (showPlayer) markPlayerSeen();
+                                }}
+                                style={styles.controlButton}
+                            />
+                        </View>
                     )}
                     {hasZap && currentItem ? (
-                        <View style={styles.channelInfo}>
+                        <View style={[styles.channelInfo, highlightZap && styles.dimmed]}>
                             {currentItem.logoUrl ? (() => {
                                 const isStreamer = currentItem.kind === 'streamer';
                                 const logoStyle = isStreamer ? styles.channelInfoLogoSquare : styles.channelInfoLogo;
@@ -430,7 +455,7 @@ export const MobileVideoPlayer = () => {
                     ) : (
                         <View style={{ flex: 1 }} />
                     )}
-                    <View style={styles.controlsRight}>
+                    <View style={[styles.controlsRight, highlightZap && styles.dimmed]}>
                         <IconButton
                             icon={isMinimized ? 'window-maximize' : 'window-minimize'}
                             iconColor="white"
@@ -522,16 +547,16 @@ export const MobileVideoPlayer = () => {
                         position: 'absolute',
                         bottom: SCREEN_HEIGHT - PLAYER_TOP - 2,
                         left: PLAYER_LEFT,
-                        width: Math.min(300, MODAL_WIDTH * 0.85),
+                        maxWidth: MODAL_WIDTH * 0.9,
                         zIndex: 10002,
                     }}
                     pointerEvents="box-none"
                 >
                     <ZappingTooltip
-                        text="¿Sabías que podés hacer zapping? ¡Tocá acá!"
+                        text={"¿Sabías que podés hacer\nzapping? ¡Hacé click acá!"}
                         onDismiss={markPlayerSeen}
                         arrow="down"
-                        arrowLeft={16}
+                        arrowLeft={14.5}
                     />
                 </View>
             )}
@@ -696,6 +721,24 @@ rowLogo: {
     controlButton: {
         backgroundColor: 'rgba(0,0,0,0.6)',
         margin: 0,
+    },
+    zapBtnWrap: {
+        position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    zapRing: {
+        position: 'absolute',
+        top: -1,
+        left: -1,
+        right: -1,
+        bottom: -1,
+        borderRadius: 22,
+        borderWidth: 2,
+        borderColor: '#60a5fa',
+    },
+    dimmed: {
+        opacity: 0.3,
     },
     webviewContainer: {
         flex: 1,
