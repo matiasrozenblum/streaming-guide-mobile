@@ -20,6 +20,8 @@ export interface Schedule {
         description: string | null;
         stream_url: string | null;
         is_live: boolean;
+        /** Live past its scheduled end because the stream never stopped. */
+        live_overtime?: boolean;
         live_streams?: LiveStream[] | null;
         stream_count?: number;
         panelists: { id: number; name: string }[];

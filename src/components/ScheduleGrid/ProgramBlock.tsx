@@ -147,7 +147,6 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
     const adjustedNow = isOverflowProgram && currentMinutes < 4 * 60
         ? currentMinutes + 24 * 60
         : currentMinutes;
-    const isPast = isViewingToday ? adjustedEnd < adjustedNow : isPastDay;
 
     // Overflow programs are in the next calendar day's 00:00–03:59 window. When the current
     // clock is inside that window and isViewingToday is false (we're viewing "yesterday"),
@@ -155,6 +154,11 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
     const isLive = isViewingToday
         ? schedule.program.is_live
         : isOverflowProgram && !isPastDay && currentMinutes < 4 * 60 && schedule.program.is_live;
+
+    // A program still on air is not past, even once its scheduled block ended: the backend
+    // keeps it live while its stream is still running (overtime). Without excluding isLive
+    // here, such a block renders lit but with a faded border.
+    const isPast = (isViewingToday ? adjustedEnd < adjustedNow : isPastDay) && !isLive;
 
     const isWeeklyOverride = schedule.isWeeklyOverride ?? false;
     const weeklyOverrideType = schedule.overrideType;
