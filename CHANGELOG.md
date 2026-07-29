@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.19] - 2026-07-29
+
+### Fixed
+- **Borde atenuado en programas que siguen en vivo pasados de horario**: con el *overtime* del backend (1.40.0), un programa cuya transmisión no cortó sigue llegando como `is_live: true` después de su horario. La app ya lo mostraba correctamente encendido — el fondo, el badge LIVE, el CTA "Ver en vivo" y el reproductor funcionaban sin cambios, porque la precedencia `if (isLive) ... else if (isPast)` ya era la correcta — pero el borde del bloque quedaba tenue, ya que `borderColor` usaba `isPast` sin excluir `isLive`. Ahora un programa al aire deja de considerarse pasado, con lo que borde y fondo quedan consistentes. Se agrega también `live_overtime?: boolean` al tipo `Schedule`, que el backend envía junto a `is_live`; no se renderiza distinto.
+
+---
+
 ## [1.0.18] - 2026-07-25
 
 ### Added
