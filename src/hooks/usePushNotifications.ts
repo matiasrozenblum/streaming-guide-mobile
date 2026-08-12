@@ -201,10 +201,12 @@ export function usePushNotifications() {
             return;
         }
 
+        let cancelled = false;
+
         const registerWithBackend = async () => {
             // Wait a moment for FCM token to be available
             let attempts = 0;
-            while (!fcmToken && attempts < 10) {
+            while (!fcmToken && attempts < 10 && !cancelled) {
                 console.log('[Push] Waiting for FCM token... attempt', attempts + 1);
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 attempts++;
@@ -215,10 +217,34 @@ export function usePushNotifications() {
                 return;
             }
 
+            // The wait above can outlive the session: a cold start restores the
+            // cached session, the profile fetch then 401s and the refresh fails,
+            // and the teardown runs while we are still waiting for FCM. Without
+            // this re-check the registration below lands *after* the logout and
+            // silently re-subscribes the device — /push/fcm/subscribe needs no
+            // auth, so it succeeds even with no session at all.
+            if (cancelled || !sessionRef.current?.accessToken) {
+                console.log('[Push] Session ended while waiting for FCM token, skipping registration');
+                return;
+            }
+
             console.log('[Push] Registering device with backend...');
             try {
-                const deviceResult = await DeviceService.registerDevice(session.accessToken);
+                const deviceResult = await DeviceService.registerDevice(sessionRef.current.accessToken);
                 console.log('[Push] Device registered:', JSON.stringify(deviceResult));
+
+                // registerDevice swallows its errors and returns null, so a 401
+                // here is the signal that the session died mid-flight. Carrying
+                // on would subscribe a device whose user is no longer logged in.
+                if (!deviceResult) {
+                    console.log('[Push] Device registration failed, not subscribing to push');
+                    return;
+                }
+
+                if (cancelled || !sessionRef.current?.accessToken) {
+                    console.log('[Push] Session ended before FCM registration, skipping');
+                    return;
+                }
 
                 const fcmResult = await DeviceService.registerFCM(fcmToken);
                 console.log('[Push] FCM registered:', fcmResult);
@@ -231,6 +257,8 @@ export function usePushNotifications() {
         };
 
         registerWithBackend();
+
+        return () => { cancelled = true; };
     }, [isAuthenticated, session?.accessToken]);
 
     // Effect 3: Reset on logout

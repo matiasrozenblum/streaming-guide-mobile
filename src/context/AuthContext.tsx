@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
-import { userApi, authApi } from '../services/api';
+import { userApi, authApi, performTokenRefresh } from '../services/api';
+import { tokenStorage } from '../services/tokenStorage';
 import { tokenEvents } from '../services/tokenEvents';
 import { DeviceService } from '../services/device.service';
 import { trackEvent, identifyUser, resetAnalytics, setAnalyticsAdminMode } from '../lib/analytics';
@@ -38,8 +40,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ACCESS_TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
 const USER_PROFILE_KEY = 'user_profile';
 
 // Generate or retrieve device ID
@@ -72,18 +72,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * push notifications. Never clear a session anywhere else.
    */
   const clearSession = useCallback(async () => {
+    // Clear the tokens first: the in-flight push registration started by
+    // usePushNotifications reads auth state before calling the backend, so the
+    // session must already be gone by the time the unsubscribe lands. Otherwise
+    // that registration re-subscribes the device moments after we unsubscribe
+    // it, and a logged-out device keeps receiving notifications.
+    await tokenStorage.clear();
+    await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
+    setSession(null);
+
     // Best-effort: stop this device from receiving push notifications.
     // The unsubscribe endpoint only needs the deviceId, so it works even
-    // after tokens are gone.
+    // after tokens are gone. If it fails, the flag stays set and the next
+    // cold start retries it.
     try {
       await DeviceService.unregisterFCM();
     } catch (e) {
       console.warn('[Auth] unregisterFCM during clearSession failed:', e);
     }
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_PROFILE_KEY);
-    setSession(null);
     try {
       await setAnalyticsAdminMode(false);
       await resetAnalytics();
@@ -118,49 +124,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const accessToken = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-        const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+        const tokens = await tokenStorage.get();
 
-        if (accessToken && refreshToken) {
-          // Restore session immediately from cached profile (no network wait)
-          const cachedProfileJson = await SecureStore.getItemAsync(USER_PROFILE_KEY);
-          if (cachedProfileJson) {
-            const cachedUser: User = JSON.parse(cachedProfileJson);
-            setSession({ user: cachedUser, accessToken, refreshToken });
-            if (cachedUser.role === 'admin') {
-              await setAnalyticsAdminMode(true);
-            }
-            setIsLoading(false);
+        if (!tokens) {
+          // No session on disk. clearSession() only runs on a logged-in →
+          // logged-out *transition*, so a device that lost its tokens between
+          // launches would otherwise stay subscribed to push forever. Reconcile
+          // it here: this also retries an unsubscribe that failed at logout.
+          if (await DeviceService.isFCMRegistered()) {
+            console.log('[Auth] No session but device is registered for push — unregistering');
+            await DeviceService.unregisterFCM();
           }
-
-          // Refresh profile from network in background
-          const user = await fetchUserProfile(accessToken);
-          if (user) {
-            // The 401 interceptor may have rotated tokens while fetching the
-            // profile — re-read the latest values so session state never holds
-            // a stale token (Causa #2).
-            const [latestAccess, latestRefresh] = await Promise.all([
-              SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
-              SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
-            ]);
-            await SecureStore.setItemAsync(USER_PROFILE_KEY, JSON.stringify(user));
-            setSession({
-              user,
-              accessToken: latestAccess ?? accessToken,
-              refreshToken: latestRefresh ?? refreshToken,
-            });
-            if (user.role === 'admin') {
-              await setAnalyticsAdminMode(true);
-            }
-          }
-          // If fetchUserProfile failed we deliberately do NOT clear the session
-          // here (Causa #1):
-          //   - transient network error on cold start → keep the cached session,
-          //     the tokens are still valid (7-day access token).
-          //   - genuine auth failure (refresh token exhausted) → the 401
-          //     interceptor already deleted the tokens and emitted 'logout',
-          //     which runs clearSession(). No independent teardown needed.
+          return;
         }
+
+        const { accessToken, refreshToken } = tokens;
+
+        // Restore session immediately from cached profile (no network wait)
+        const cachedProfileJson = await SecureStore.getItemAsync(USER_PROFILE_KEY);
+        if (cachedProfileJson) {
+          const cachedUser: User = JSON.parse(cachedProfileJson);
+          setSession({ user: cachedUser, accessToken, refreshToken });
+          if (cachedUser.role === 'admin') {
+            await setAnalyticsAdminMode(true);
+          }
+          setIsLoading(false);
+        }
+
+        // Refresh profile from network in background
+        const user = await fetchUserProfile(accessToken);
+        if (user) {
+          // The 401 interceptor may have rotated tokens while fetching the
+          // profile — re-read the latest values so session state never holds
+          // a stale token (Causa #2).
+          const latest = await tokenStorage.get();
+          await SecureStore.setItemAsync(USER_PROFILE_KEY, JSON.stringify(user));
+          setSession({
+            user,
+            accessToken: latest?.accessToken ?? accessToken,
+            refreshToken: latest?.refreshToken ?? refreshToken,
+          });
+          if (user.role === 'admin') {
+            await setAnalyticsAdminMode(true);
+          }
+        }
+        // If fetchUserProfile failed we deliberately do NOT clear the session
+        // here (Causa #1):
+        //   - transient network error on cold start → keep the cached session,
+        //     the tokens are still valid (7-day access token).
+        //   - genuine auth failure (refresh token rejected) → the 401
+        //     interceptor emitted 'logout', which runs clearSession(). No
+        //     independent teardown needed.
       } catch (error) {
         console.error('Error loading session:', error);
       } finally {
@@ -181,9 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (accessToken: string, refreshToken: string) => {
     try {
-      // Store tokens securely
-      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
-      await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+      // Store both tokens in a single atomic write — a half-persisted pair is
+      // what silently killed sessions a week later.
+      await tokenStorage.set(accessToken, refreshToken);
 
       // Fetch user profile
       const user = await fetchUserProfile(accessToken);
@@ -225,20 +239,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearSession();
   };
 
-  const refreshSession = async () => {
-    // Always read the freshest refresh token from storage, never from session
-    // state (which could be stale — Causa #2).
-    const storedRefresh = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    if (!storedRefresh) return;
-
+  const refreshSession = useCallback(async () => {
     try {
-      const data = await authApi.refreshToken(storedRefresh);
-      await login(data.access_token, data.refresh_token);
+      // performTokenRefresh reads the freshest pair from storage (never from
+      // stale React state) and persists the rotated pair atomically.
+      const accessToken = await performTokenRefresh();
+      const latest = await tokenStorage.get();
+      setSession((current) =>
+        current && latest
+          ? { ...current, accessToken, refreshToken: latest.refreshToken }
+          : current,
+      );
     } catch (error) {
-      console.error('Error refreshing session:', error);
-      await clearSession();
+      // Teardown is owned by the 401 interceptor, which knows whether the
+      // backend actually rejected the session or we simply could not reach it.
+      // Clearing here on any error is what turned offline blips into logouts.
+      console.warn('[Auth] refreshSession failed:', (error as Error)?.message ?? error);
     }
-  };
+  }, []);
+
+  // Renew the access token before it expires, while the app is in the
+  // foreground and the network is known-good.
+  //
+  // Refreshes used to happen only reactively, on a 401 — which meant tokens
+  // rotated at most once every 7 days, and the 14-day refresh window counted
+  // from login rather than from last use. A user active every few days could
+  // still be logged out on day 14. Renewing on foreground keeps an actively
+  // used session alive indefinitely.
+  const isRefreshingRef = useRef(false);
+  useEffect(() => {
+    const maybeRefresh = async (state: AppStateStatus) => {
+      if (state !== 'active' || isRefreshingRef.current) return;
+
+      let tokens;
+      try {
+        tokens = await tokenStorage.get();
+      } catch {
+        return; // storage hiccup — never act on it
+      }
+      if (!tokens || !tokenStorage.isAccessTokenStale(tokens)) return;
+
+      isRefreshingRef.current = true;
+      try {
+        console.log('[Auth] Access token is stale, refreshing proactively');
+        await refreshSession();
+      } finally {
+        isRefreshingRef.current = false;
+      }
+    };
+
+    void maybeRefresh('active');
+    const subscription = AppState.addEventListener('change', maybeRefresh);
+    return () => subscription.remove();
+  }, [refreshSession]);
 
   const updateUser = (updatedUser: Partial<User>) => {
     if (session) {

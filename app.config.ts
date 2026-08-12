@@ -103,7 +103,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ...config,
         name: getAppName(),
         slug: "la-guia-del-streaming",
-        version: "1.0.18",
+        version: "1.0.19",
         orientation: "portrait",
         icon: getAppIcon(),
         userInterfaceStyle: "dark",
