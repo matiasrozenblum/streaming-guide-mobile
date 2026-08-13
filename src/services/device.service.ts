@@ -2,6 +2,7 @@ import api from './api';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 
 const DEVICE_ID_KEY = 'device_uuid';
@@ -49,9 +50,15 @@ export const DeviceService = {
      */
     async registerDevice(accessToken: string): Promise<{ deviceId: string } | null> {
         const deviceId = await this.getDeviceId();
+        // The backend has always accepted these; not sending them left
+        // devices.platform and devices.app_version NULL for every row, which
+        // made it impossible to answer "which builds are still out there?"
+        // from the database.
+        const platform: 'ios' | 'android' | 'web' = Platform.OS === 'ios' ? 'ios' : 'android';
+        const appVersion = Application.nativeApplicationVersion ?? undefined;
 
         try {
-            const response = await api.post('/subscriptions/device', { deviceId }, {
+            const response = await api.post('/subscriptions/device', { deviceId, platform, appVersion }, {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
             console.log('Device registered successfully:', response.data);
