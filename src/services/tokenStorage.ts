@@ -70,12 +70,34 @@ async function clearLegacy(): Promise<void> {
   ]);
 }
 
+/**
+ * Coalesces concurrent reads.
+ *
+ * A cold start fires several `get()` calls at once — the session loader, the request
+ * interceptor on every outbound call, the proactive refresh check. Left uncoordinated
+ * they all observe the legacy keys and all run the migration (six times, in practice).
+ * Beyond the wasted writes that opens a real hole: a caller that reads the new key just
+ * before another writes it, and reaches the legacy keys just after that one deletes
+ * them, sees nothing and reports "no session" for an account that is perfectly signed
+ * in — which in loadSession also unregisters the device from push.
+ */
+let inFlightRead: Promise<TokenPair | null> | null = null;
+
 export const tokenStorage = {
   /**
    * Read the token pair, migrating a legacy two-key session on first run.
    * Returns null when there is no usable session.
    */
   async get(): Promise<TokenPair | null> {
+    if (!inFlightRead) {
+      inFlightRead = this.readOnce().finally(() => {
+        inFlightRead = null;
+      });
+    }
+    return inFlightRead;
+  },
+
+  async readOnce(): Promise<TokenPair | null> {
     try {
       const raw = await SecureStore.getItemAsync(TOKENS_KEY);
       if (raw) {
