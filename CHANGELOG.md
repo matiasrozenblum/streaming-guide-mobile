@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.19] - 2026-08-13
+
+### Fixed
+- **Deslogueo silencioso a los 7 días**: el par access/refresh se guardaba con dos escrituras secuenciales a `SecureStore`. Si la segunda fallaba, el dispositivo quedaba con access token y sin refresh token; una semana después vencía el access, el interceptor de 401 no encontraba refresh y destruía la sesión **sin siquiera llamar a `/auth/refresh`** — un logout sin ningún rastro del lado servidor. Ahora el par se persiste como un único valor JSON, así que la escritura es todo-o-nada y un estado a medio escribir no puede existir. Las sesiones creadas por builds anteriores se migran en la primera lectura, y las lecturas concurrentes del arranque se coalescen en una sola: sin eso la migración corría una vez por cada llamada simultánea (seis, medido en emulador) y quedaba una ventana en la que una lectura podía no ver ni la clave nueva ni las viejas y reportar "sin sesión" para un usuario logueado — lo que además habría desregistrado el dispositivo de las push.
+- **Logout ante errores transitorios**: el `catch` del interceptor borraba los tokens ante *cualquier* fallo del refresh. Ahora solo un 401/403 del backend (o un refresh token genuinamente ausente) termina la sesión; sin conexión, 5xx, respuestas malformadas y fallos de storage dejan los tokens intactos. La escritura de tokens salió del bloque que dispara el logout: un refresh exitoso que no se llega a persistir ya no se confunde con un fallo de autenticación.
+- **Push notifications tras el logout**: el registro de push se re-creaba justo después del teardown de sesión. `usePushNotifications` espera hasta 10s a que aparezca el token de FCM, y esa espera podía sobrevivir al logout; como `POST /push/fcm/subscribe` no requiere auth, la re-suscripción funcionaba aun sin sesión. Ahora se re-verifica el estado de auth después de la espera y se aborta si el backend rechaza la sesión.
+- **Registro de push perdido por un corte de red**: `registerDevice` y `registerFCM` devolvían `null`/`false` tanto ante un 401 (sesión terminada) como ante un fallo transitorio, sin distinguirlos. Ahora devuelven un resultado tipado: un rechazo del backend aborta el registro, mientras que un fallo de red reintenta hasta 3 veces con backoff. Antes, como el efecto no se vuelve a disparar solo, un blip de red dejaba al dispositivo sin registro de push hasta el siguiente arranque de la app.
+- **`onTokenRefresh` marcaba el dispositivo como registrado aunque el registro hubiera fallado**, porque `registerFCM` reporta el error por valor de retorno y no lanzando.
+- **Dispositivos que quedaban suscriptos para siempre**: `clearSession()` solo corre en la *transición* de logueado a deslogueado, así que un dispositivo que perdía sus tokens entre arranques nunca se desregistraba. Se reconcilia el estado de push en el arranque, lo que además reintenta un unsubscribe que haya fallado al momento del logout. Los dispositivos ya afectados se reparan solos en el primer arranque de esta versión.
+
+### Changed
+- **Refresh proactivo al volver a foreground**: antes el refresh solo ocurría de forma reactiva ante un 401, así que los tokens rotaban como mucho una vez cada 7 días y la ventana de 14 días contaba desde el login y no desde el último uso — un usuario activo cada pocos días igual se deslogueaba el día 14. Ahora la sesión se renueva mientras la app se use.
+- `registerDevice` ahora envía `platform` y `appVersion`. El backend siempre los aceptó pero nunca se mandaban, dejando `devices.app_version` en NULL para todas las filas e impidiendo saber qué builds siguen en uso.
+- `refreshSession()` ya no vuelve a ejecutar todo el flujo de login (que disparaba un evento `login_success` en cada refresh) ni destruye la sesión ante cualquier error.
+
+### Removed
+- `src/services/auth.service.ts`, código muerto sin ninguna referencia.
+
+---
+
 ## [1.0.18] - 2026-07-25
 
 ### Added
