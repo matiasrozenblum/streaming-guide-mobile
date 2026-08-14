@@ -11,6 +11,10 @@ import { videoPlayerRef } from '../context/VideoPlayerContext';
 
 const PUSH_PROMPT_SHOWN_KEY = '@push_permission_prompted';
 
+/** Bounded retry for backend registration when the API is unreachable. */
+const MAX_REGISTRATION_ATTEMPTS = 3;
+const REGISTRATION_RETRY_BASE_MS = 2000;
+
 // Module-level state shared between hook and exported function
 let fcmToken: string | null = null;
 
@@ -132,9 +136,12 @@ export function usePushNotifications() {
                 registeredRef.current = false;
                 if (sessionRef.current?.accessToken) {
                     try {
-                        await DeviceService.registerFCM(newToken);
-                        registeredRef.current = true;
-                        console.log('[Push] Re-registered new FCM token with backend');
+                        const result = await DeviceService.registerFCM(newToken);
+                        // registerFCM reports failure by return value rather than
+                        // throwing, so this used to mark the device as registered
+                        // even when the call had failed.
+                        registeredRef.current = result.status === 'ok';
+                        console.log('[Push] Re-registration of new FCM token:', result.status);
                     } catch (error: any) {
                         console.error('[Push] Failed to re-register new FCM token:', error?.message || error);
                     }
@@ -228,32 +235,59 @@ export function usePushNotifications() {
                 return;
             }
 
-            console.log('[Push] Registering device with backend...');
-            try {
-                const deviceResult = await DeviceService.registerDevice(sessionRef.current.accessToken);
-                console.log('[Push] Device registered:', JSON.stringify(deviceResult));
-
-                // registerDevice swallows its errors and returns null, so a 401
-                // here is the signal that the session died mid-flight. Carrying
-                // on would subscribe a device whose user is no longer logged in.
-                if (!deviceResult) {
-                    console.log('[Push] Device registration failed, not subscribing to push');
-                    return;
-                }
-
+            // A rejected call means the session is gone and this device must not be
+            // subscribed. An unavailable one only means we could not reach the
+            // backend — the session is presumably fine, so retry rather than leave
+            // the user without notifications until the next cold start (this effect
+            // does not re-run on its own).
+            let delayMs = REGISTRATION_RETRY_BASE_MS;
+            for (let attempt = 1; attempt <= MAX_REGISTRATION_ATTEMPTS; attempt++) {
                 if (cancelled || !sessionRef.current?.accessToken) {
-                    console.log('[Push] Session ended before FCM registration, skipping');
+                    console.log('[Push] Session ended, abandoning registration');
                     return;
                 }
 
-                const fcmResult = await DeviceService.registerFCM(fcmToken);
-                console.log('[Push] FCM registered:', fcmResult);
+                console.log(`[Push] Registering device with backend (attempt ${attempt}/${MAX_REGISTRATION_ATTEMPTS})...`);
+                try {
+                    const deviceResult = await DeviceService.registerDevice(
+                        sessionRef.current.accessToken,
+                    );
 
-                registeredRef.current = true;
-                console.log('[Push] Registration complete!');
-            } catch (error: any) {
-                console.error('[Push] Backend registration failed:', error?.message || error);
+                    if (deviceResult.status === 'rejected') {
+                        console.log('[Push] Session rejected by backend, not subscribing to push');
+                        return;
+                    }
+
+                    if (deviceResult.status === 'ok') {
+                        if (cancelled || !sessionRef.current?.accessToken) {
+                            console.log('[Push] Session ended before FCM registration, skipping');
+                            return;
+                        }
+
+                        const fcmResult = await DeviceService.registerFCM(fcmToken);
+
+                        if (fcmResult.status === 'ok') {
+                            registeredRef.current = true;
+                            console.log('[Push] Registration complete!');
+                            return;
+                        }
+                        if (fcmResult.status === 'rejected') {
+                            console.log('[Push] FCM subscription rejected by backend, giving up');
+                            return;
+                        }
+                    }
+                } catch (error: any) {
+                    console.error('[Push] Backend registration failed:', error?.message || error);
+                }
+
+                if (attempt < MAX_REGISTRATION_ATTEMPTS) {
+                    console.log(`[Push] Backend unavailable, retrying in ${delayMs}ms`);
+                    await new Promise((resolve) => setTimeout(resolve, delayMs));
+                    delayMs *= 2;
+                }
             }
+
+            console.warn('[Push] Could not register with backend after retries; will retry on next launch');
         };
 
         registerWithBackend();
