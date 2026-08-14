@@ -1,9 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
-import * as SecureStore from 'expo-secure-store';
 import { getPlatform } from '../context/AuthContext';
 import { DeviceService } from './device.service';
 import * as Application from 'expo-application';
 import { tokenEvents } from './tokenEvents';
+import { tokenStorage } from './tokenStorage';
 
 import Constants from 'expo-constants';
 
@@ -34,7 +34,7 @@ api.interceptors.request.use(async (config) => {
 
   // Inject JWT if available and not already set by the caller
   if (!config.headers['Authorization']) {
-    const accessToken = await SecureStore.getItemAsync('access_token');
+    const accessToken = await tokenStorage.getAccessToken();
     if (accessToken) {
       config.headers['Authorization'] = `Bearer ${accessToken}`;
     }
@@ -60,6 +60,97 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
+/**
+ * The session is genuinely over: there is nothing left to refresh with, or the
+ * backend rejected the refresh token. Only this warrants tearing the session
+ * down.
+ */
+export class SessionExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SessionExpiredError';
+  }
+}
+
+/**
+ * A refresh could not be completed for a reason unrelated to the credentials —
+ * the device was offline, the API returned 5xx, or SecureStore failed. The
+ * tokens on disk are untouched and may well still be valid, so the session must
+ * survive.
+ */
+export class TokenRefreshUnavailableError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = 'TokenRefreshUnavailableError';
+  }
+}
+
+/** Only a definitive rejection by the backend ends a session. */
+const isSessionEndingError = (error: unknown): boolean => {
+  if (error instanceof SessionExpiredError) return true;
+  if (error instanceof TokenRefreshUnavailableError) return false;
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    return status === 401 || status === 403;
+  }
+  return false;
+};
+
+/**
+ * Exchange the refresh token for a new pair. Returns the new access token.
+ *
+ * Every failure mode is classified before it propagates, so that the caller can
+ * distinguish "this session is over" from "we could not reach the backend right
+ * now". Conflating the two is what silently logged users out.
+ */
+let inFlightRefresh: Promise<string> | null = null;
+
+export async function performTokenRefresh(): Promise<string> {
+  // Single-flight: the 401 interceptor and the proactive foreground refresh can
+  // fire at the same moment on a cold start. Two concurrent rotations both
+  // succeed but race to write, and the loser persists a superseded pair.
+  if (!inFlightRefresh) {
+    inFlightRefresh = doTokenRefresh().finally(() => {
+      inFlightRefresh = null;
+    });
+  }
+  return inFlightRefresh;
+}
+
+async function doTokenRefresh(): Promise<string> {
+  let pair;
+  try {
+    pair = await tokenStorage.get();
+  } catch (storageError) {
+    throw new TokenRefreshUnavailableError('Could not read stored tokens', storageError);
+  }
+
+  if (!pair) {
+    throw new SessionExpiredError('No refresh token available');
+  }
+
+  const response = await api.post('/auth/refresh', null, {
+    headers: { Authorization: `Bearer ${pair.refreshToken}` },
+  });
+
+  const { access_token, refresh_token } = response.data ?? {};
+  if (!access_token || !refresh_token) {
+    // A malformed response is a backend problem, not an expired session.
+    throw new TokenRefreshUnavailableError('Refresh response was missing a token');
+  }
+
+  try {
+    await tokenStorage.set(access_token, refresh_token);
+  } catch (storageError) {
+    // The refresh already succeeded server-side and the previous pair is still
+    // on disk and still valid — the backend does not revoke rotated tokens.
+    // Failing to persist the new pair must never read as an auth failure.
+    throw new TokenRefreshUnavailableError('Could not persist refreshed tokens', storageError);
+  }
+
+  return access_token;
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -82,27 +173,28 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = await SecureStore.getItemAsync('refresh_token');
-        if (!refreshToken) throw new Error('No refresh token');
+        const accessToken = await performTokenRefresh();
 
-        const response = await api.post('/auth/refresh', null, {
-          headers: { Authorization: `Bearer ${refreshToken}` },
-        });
-        const { access_token, refresh_token } = response.data;
+        processQueue(null, accessToken);
 
-        await SecureStore.setItemAsync('access_token', access_token);
-        await SecureStore.setItemAsync('refresh_token', refresh_token);
-
-        processQueue(null, access_token);
-
-        originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+        originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        await SecureStore.deleteItemAsync('access_token');
-        await SecureStore.deleteItemAsync('refresh_token');
-        await SecureStore.deleteItemAsync('user_profile');
-        tokenEvents.emit('logout');
+
+        if (isSessionEndingError(refreshError)) {
+          // Let AuthContext.clearSession() own the teardown so the device is
+          // always unregistered from push along with it.
+          tokenEvents.emit('logout');
+        } else {
+          // Transient: offline, 5xx, or a storage hiccup. The stored tokens are
+          // untouched and the next request will retry the refresh.
+          console.warn(
+            '[API] Token refresh unavailable, keeping session:',
+            (refreshError as Error)?.message ?? refreshError,
+          );
+        }
+
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
