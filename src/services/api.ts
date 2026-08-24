@@ -129,7 +129,11 @@ async function doTokenRefresh(): Promise<string> {
     throw new SessionExpiredError('No refresh token available');
   }
 
-  const response = await api.post('/auth/refresh', null, {
+  // Body is {} rather than null: axios serialises a null body to the literal
+  // string "null", and Express's JSON parser rejects that outright (400), so the
+  // refresh could never reach the handler and no session could ever be renewed.
+  // The backend now tolerates it too, but old builds depend on this.
+  const response = await api.post('/auth/refresh', {}, {
     headers: { Authorization: `Bearer ${pair.refreshToken}` },
   });
 
@@ -281,7 +285,8 @@ export const authApi = {
 
   // Refresh access token
   refreshToken: async (refreshToken: string) => {
-    const response = await api.post('/auth/refresh', null, {
+    // See performTokenRefresh: a null body is serialised as "null" and rejected.
+    const response = await api.post('/auth/refresh', {}, {
       headers: { Authorization: `Bearer ${refreshToken}` },
     });
     return response.data;
