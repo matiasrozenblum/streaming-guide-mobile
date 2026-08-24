@@ -7,15 +7,23 @@ interface CacheEntry<T> {
     expiresAt: number; // timestamp
 }
 
+export interface CachedValue<T> {
+    data: T;
+    /** True once the TTL has elapsed. The value is still returned. */
+    stale: boolean;
+    /** How long ago the TTL elapsed, in ms. 0 while still fresh. */
+    expiredForMs: number;
+}
+
 export const CacheService = {
-    async get<T>(key: string): Promise<{ data: T; stale: boolean } | null> {
+    async get<T>(key: string): Promise<CachedValue<T> | null> {
         try {
             const raw = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
             if (!raw) return null;
 
             const entry: CacheEntry<T> = JSON.parse(raw);
-            const stale = Date.now() > entry.expiresAt;
-            return { data: entry.data, stale };
+            const expiredForMs = Math.max(0, Date.now() - entry.expiresAt);
+            return { data: entry.data, stale: expiredForMs > 0, expiredForMs };
         } catch {
             return null;
         }

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.0.20] - 2026-08-23
 
 ### Fixed
+- **El cache de la grilla se servía sin límite de antigüedad**: `CacheService` calculaba si una entrada estaba vencida, pero los métodos `getCached*` ignoraban ese dato y devolvían lo que hubiera. Cuando el refresh fallaba de forma sostenida, una entrada de días atrás quedaba en pantalla como si fuera actual, mostrando la programación de otro día sin ninguna señal. Ahora se sirve igual para pintar al instante y para funcionar sin conexión, pero con un techo de 12 h para schedules (7 días para categorías, que no cambian): más allá se descarta y la pantalla espera datos reales en vez de mostrar algo engañoso. Además, una entrada vencida ya no marca la pantalla como cargada, así que el próximo foco vuelve a mostrar su estado de carga.
 - **El refresh de tokens nunca funcionaba, dejando la sesión rota a los 7 días**: `api.post('/auth/refresh', null, ...)` hacía que axios serializara el body como el string literal `"null"`, y el parser JSON de Express lo rechazaba con `400 Unexpected token 'n', "null" is not valid JSON` antes de llegar al handler. Como consecuencia ningún access token podía renovarse y toda sesión quedaba inutilizable al vencer, 7 días después del login. El síntoma visible era la grilla vacía o desactualizada para usuarios logueados: los endpoints de schedules devolvían 401 con el token vencido y la app se quedaba con el cache viejo, o sin datos si el cache había sido invalidado. Ahora se envía `{}`.
 
 ---

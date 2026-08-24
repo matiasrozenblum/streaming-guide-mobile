@@ -17,6 +17,25 @@ const TTL = {
     CATEGORIES: 60 * 60 * 1000, // 1 hour
 };
 
+/**
+ * How long past its TTL a cached value may still be shown.
+ *
+ * Stale-while-revalidate is what makes the grid appear instantly, and it is also
+ * what keeps the app usable with no connection — so stale data is still served.
+ * But it was served with no limit at all: when the refresh kept failing, a cache
+ * entry from days earlier stayed on screen as if it were current, showing the
+ * wrong day's programming with no indication anything was wrong.
+ *
+ * A schedule grid older than this is more likely to mislead than to help — it is
+ * probably a different day entirely — so past this point it is discarded and the
+ * screen waits for real data instead. Categories change rarely and carry no such
+ * risk, so they keep a long ceiling.
+ */
+const MAX_STALE = {
+    SCHEDULES: 12 * 60 * 60 * 1000, // 12 hours
+    CATEGORIES: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
 export const ScheduleService = {
     /**
      * V2 today endpoint with batched Redis reads (fast).
@@ -72,15 +91,15 @@ export const ScheduleService = {
      * Get cached today schedules (v2 endpoint).
      * Returns cached data immediately if available, fetches fresh in background.
      */
-    async getCachedTodaySchedules(): Promise<{ data: ChannelWithSchedules[]; fromCache: boolean }> {
+    async getCachedTodaySchedules(): Promise<{ data: ChannelWithSchedules[]; fromCache: boolean; stale: boolean }> {
         const cached = await CacheService.get<ChannelWithSchedules[]>(CACHE_KEYS.TODAY_SCHEDULES);
-        if (cached) {
-            return { data: cached.data, fromCache: true };
+        if (cached && cached.expiredForMs <= MAX_STALE.SCHEDULES) {
+            return { data: cached.data, fromCache: true, stale: cached.stale };
         }
-        // No cache — must fetch
+        // No usable cache — must fetch
         const data = await this.getTodaySchedulesV2();
         await CacheService.set(CACHE_KEYS.TODAY_SCHEDULES, data, TTL.SCHEDULES);
-        return { data, fromCache: false };
+        return { data, fromCache: false, stale: false };
     },
 
     /**
@@ -95,13 +114,18 @@ export const ScheduleService = {
     /**
      * Get cached week schedules.
      */
-    async getCachedWeekSchedules(): Promise<{ data: ChannelWithSchedules[]; fromCache: boolean }> {
+    async getCachedWeekSchedules(): Promise<{ data: ChannelWithSchedules[]; fromCache: boolean; stale: boolean }> {
         const cached = await CacheService.get<ChannelWithSchedules[]>(CACHE_KEYS.WEEK_SCHEDULES);
-        if (cached) {
-            return { data: cached.data, fromCache: true };
+        if (cached && cached.expiredForMs <= MAX_STALE.SCHEDULES) {
+            return { data: cached.data, fromCache: true, stale: cached.stale };
         }
-        // No cache — don't block here, return empty. Phase 2 will fetch fresh data.
-        return { data: [], fromCache: false };
+        if (cached) {
+            console.log(
+                `[Schedules] Discarding week cache expired ${Math.round(cached.expiredForMs / 3600000)}h ago`,
+            );
+        }
+        // No usable cache — don't block here, return empty. Phase 2 fetches fresh data.
+        return { data: [], fromCache: false, stale: false };
     },
 
     /**
@@ -116,13 +140,13 @@ export const ScheduleService = {
     /**
      * Get cached categories.
      */
-    async getCachedCategories(): Promise<{ data: any[]; fromCache: boolean }> {
+    async getCachedCategories(): Promise<{ data: any[]; fromCache: boolean; stale: boolean }> {
         const cached = await CacheService.get<any[]>(CACHE_KEYS.CATEGORIES);
-        if (cached) {
-            return { data: cached.data, fromCache: true };
+        if (cached && cached.expiredForMs <= MAX_STALE.CATEGORIES) {
+            return { data: cached.data, fromCache: true, stale: cached.stale };
         }
-        // No cache — don't block here, return empty. Phase 2 will fetch fresh data.
-        return { data: [], fromCache: false };
+        // No usable cache — don't block here, return empty. Phase 2 fetches fresh data.
+        return { data: [], fromCache: false, stale: false };
     },
 
     /**

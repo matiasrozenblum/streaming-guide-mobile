@@ -108,7 +108,11 @@ export const HomeScreen = () => {
             if (cachedSchedules.fromCache || cachedCategories.fromCache) {
                 if (cachedSchedules.fromCache) {
                     setWeekChannels(cachedSchedules.data);
-                    weekLoadedRef.current = true;
+                    // Stale data is painted immediately so the grid is never blank,
+                    // but the screen is not treated as loaded until fresh data lands
+                    // — otherwise a later focus would suppress its own loading state
+                    // and the stale grid would look authoritative.
+                    weekLoadedRef.current = !cachedSchedules.stale;
                 }
                 if (cachedCategories.fromCache) {
                     setCategories(cachedCategories.data);
