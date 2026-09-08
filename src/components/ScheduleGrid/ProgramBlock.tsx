@@ -314,7 +314,7 @@ export const ProgramBlock = ({ schedule, pixelsPerMinute, channelName, channelCo
                                                     color="#FFFFFF"
                                                     style={{ marginRight: 4 }}
                                                 />
-                                                <Text style={styles.youtubeButtonText}>
+                                                <Text style={styles.youtubeButtonText} numberOfLines={1}>
                                                     {schedule.program.is_live ? 'Ver en vivo' : 'Ver en Youtube'}
                                                 </Text>
                                             </LinearGradient>
@@ -511,7 +511,16 @@ const styles = StyleSheet.create({
     },
     youtubeButtonText: {
         color: '#FFFFFF',
-        fontWeight: fontWeight.bold,
+        // Inter is bundled with the app, but a bare <Text> falls back to the system
+        // font, and this label was styled with fontWeight alone. On a device with a
+        // wider system font — a Samsung or MIUI font pack, for instance — the label
+        // outgrew the space the layout had measured for it, wrapped onto a second
+        // line, and the wrapper's overflow: 'hidden' cut it off: "Ver en Youtube"
+        // reached the user as "Ver en". Naming the bold face directly (rather than
+        // pairing a family with fontWeight, which Android resolves inconsistently)
+        // makes the metrics match the font actually used, and numberOfLines={1}
+        // makes the clipping impossible regardless.
+        fontFamily: 'Inter_700Bold',
         fontSize: 14,
     },
     iconButton: {
