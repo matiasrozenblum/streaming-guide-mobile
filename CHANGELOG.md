@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [1.0.20] - 2026-08-23
+## [1.0.20] - 2026-09-08
 
 ### Fixed
 - **La app de producción escuchaba los eventos en vivo de staging**: la URL del stream SSE (`/youtube/live-events`) estaba hardcodeada al backend de staging en todos los builds, producción incluida. Los cambios de estado en vivo del backend con el que la app realmente habla nunca le llegaban, así que la grilla solo se actualizaba cuando la pantalla recuperaba el foco de navegación. Ahora se deriva de `expoConfig.extra.apiUrl`, igual que el resto de las llamadas.
