@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, StatusBar as RNStatusBar, Platform, ScrollView, RefreshControl } from 'react-native';
+import { StyleSheet, View, StatusBar as RNStatusBar, Platform, ScrollView, RefreshControl, AppState, AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -30,6 +30,14 @@ import { getARTDayName, getLocalToARTOffsetMinutes, localizeSchedule } from '../
  * Replaces today's schedules in each channel with fresh live-status data,
  * keeping other days' schedules intact for day-switching.
  */
+/**
+ * How long the app may sit in the background before a resume triggers a reload.
+ *
+ * Short enough that reopening the app never shows a stale grid, long enough that
+ * flicking away to another app and straight back does not refetch everything.
+ */
+const FOREGROUND_RELOAD_AFTER_MS = 2 * 60 * 1000; // 2 minutes
+
 function mergeTodayIntoWeek(
     weekData: ChannelWithSchedules[],
     todayData: ChannelWithSchedules[],
@@ -76,6 +84,7 @@ export const HomeScreen = () => {
     const [selectedDate, setSelectedDate] = useState<string>(''); // English day name ('monday', etc.) or '' for today
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const weekLoadedRef = useRef(false);
+    const lastLoadedAtRef = useRef(0);
     const isMountedRef = useRef(true);
     const categorySelectorScrollXRef = useRef(0);
     useEffect(() => () => { isMountedRef.current = false; }, []);
@@ -96,6 +105,7 @@ export const HomeScreen = () => {
      */
     const loadData = async (showLoading = true) => {
         const t0 = Date.now();
+        lastLoadedAtRef.current = t0;
         console.log('[Perf] loadData START');
 
         try {
@@ -283,6 +293,27 @@ export const HomeScreen = () => {
             return { ...ch, schedules };
         })
         .filter(ch => ch.schedules.length > 0 || !ch.channel.show_only_when_scheduled);
+
+    // Reload when the app returns to the foreground.
+    //
+    // loadData otherwise only runs from useFocusEffect, which fires on *navigation*
+    // focus — not when the app is resumed. An app left in the background and picked
+    // up later kept rendering the React state from whenever it was last opened, so a
+    // user could be looking at yesterday's grid: the schedule of a program that has
+    // long since ended, its is_live flag frozen, and its "watch" button pointing at
+    // the channel's playlist instead of the live stream. Nothing on screen gave it
+    // away, because the red "now" marker is computed from the live clock.
+    useEffect(() => {
+        const handleAppState = (state: AppStateStatus) => {
+            if (state !== 'active') return;
+            const age = Date.now() - lastLoadedAtRef.current;
+            if (age < FOREGROUND_RELOAD_AFTER_MS) return;
+            console.log(`[Perf] Foreground after ${Math.round(age / 1000)}s — reloading`);
+            loadData(false);
+        };
+        const subscription = AppState.addEventListener('change', handleAppState);
+        return () => subscription.remove();
+    }, []);
 
     // Load data on focus and when auth state changes (login/logout)
     useFocusEffect(

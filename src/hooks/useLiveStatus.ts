@@ -1,8 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import Constants from 'expo-constants';
 import { ScheduleService } from '../services/schedule.service';
 
-const SSE_URL = 'https://streaming-guide-backend-staging.up.railway.app/youtube/live-events';
+// Derived from the same config as every other request rather than hardcoded.
+// This URL pointed at staging in every build, production included, so a
+// production app subscribed to staging's event stream: live-status changes on
+// the backend it actually talks to never reached it, and the grid only ever
+// refreshed when the screen regained navigation focus.
+const BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+const SSE_URL = `${BASE_URL}/youtube/live-events`;
 const RECONNECT_DELAY = 5000;
 
 type LiveStatusCallback = () => void;
