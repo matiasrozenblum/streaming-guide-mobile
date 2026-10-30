@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
+    Linking,
     StyleSheet,
     Text,
     useWindowDimensions,
@@ -39,11 +41,17 @@ function rangeLabel(recap: Recap): string {
     return `${from.getUTCDate()} — ${to.getUTCDate()} de ${MONTHS[to.getUTCMonth()]}`;
 }
 
-/** What to say once a share has resolved. Cancelling says nothing. */
+/**
+ * What to say once a share has resolved. Cancelling says nothing, because
+ * cancelling is a decision. Each one is kept to a single line: the message
+ * takes the counter's place rather than adding a row, so the placa above it
+ * never resizes to make room for it.
+ */
 const OUTCOME_MESSAGE: Record<string, string | null> = {
     shared: null,
     cancelled: null,
     saved: 'Guardamos la placa en tu galería.',
+    manual: 'Guardamos la placa en tu galería.',
     missing: 'No encontramos esa app en tu teléfono.',
     fallback: null,
     error: 'No pudimos compartir la placa. Probá de nuevo.',
@@ -163,7 +171,7 @@ export const RecapScreen = () => {
         async (target: ShareTarget) => {
             const slide = slides[current];
             if (!slide?.uri) {
-                setNotice('La placa todavía se está generando. Probá en un segundo.');
+                setNotice('La placa se está generando. Probá de nuevo.');
                 return;
             }
             setBusy(target);
@@ -171,6 +179,25 @@ export const RecapScreen = () => {
                 const { outcome, detail } = await sharePlaca(target, slide.uri);
                 if (detail) console.warn('[Recap] share failed', target, detail);
                 setNotice(OUTCOME_MESSAGE[outcome] ?? null);
+
+                // TikTok takes no handoff, so the placa is in the gallery and
+                // the upload has to start there. Said out loud, with the trip
+                // to the app offered rather than taken.
+                if (outcome === 'manual') {
+                    Alert.alert(
+                        'Guardamos la placa',
+                        'TikTok no permite recibir una imagen desde otra app, así que la dejamos en tu galería para que la subas desde ahí.',
+                        [
+                            { text: 'Ahora no', style: 'cancel' },
+                            {
+                                text: 'Abrir TikTok',
+                                onPress: () => {
+                                    void Linking.openURL('tiktok://');
+                                },
+                            },
+                        ],
+                    );
+                }
                 void trackEvent('recap_share', {
                     target,
                     outcome,
@@ -253,8 +280,24 @@ export const RecapScreen = () => {
                         <Text style={[styles.caption, { color: theme.colors.textPrimary }]}>
                             {PLACA_LABELS[slides[current]?.kind ?? slides[0].kind]}
                         </Text>
-                        <Text style={[styles.counter, { color: theme.colors.textSecondary }]}>
-                            {current + 1} de {slides.length} · Deslizá para ver más
+                        {/* The feedback line replaces the counter instead of
+                            floating over everything: an absolutely positioned
+                            toast was being painted under the tab bar, which
+                            carries elevation 8 and wins on Android however the
+                            siblings are ordered. */}
+                        <Text
+                            numberOfLines={1}
+                            style={[
+                                styles.counter,
+                                {
+                                    color: notice
+                                        ? theme.colors.primary
+                                        : theme.colors.textSecondary,
+                                },
+                            ]}
+                        >
+                            {notice ??
+                                `${current + 1} de ${slides.length} · Deslizá para ver más`}
                         </Text>
                     </View>
 
@@ -296,11 +339,6 @@ export const RecapScreen = () => {
                 {body()}
             </View>
 
-            {notice && (
-                <View style={[styles.toast, { backgroundColor: theme.colors.background }]}>
-                    <Text style={[styles.toastText, { color: theme.colors.textPrimary }]}>{notice}</Text>
-                </View>
-            )}
         </SafeAreaView>
     );
 };
@@ -360,18 +398,5 @@ const styles = StyleSheet.create({
     },
     counter: {
         fontSize: 13,
-    },
-    toast: {
-        position: 'absolute',
-        left: 16,
-        right: 16,
-        bottom: 16,
-        borderRadius: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    toastText: {
-        fontSize: 14,
-        textAlign: 'center',
     },
 });

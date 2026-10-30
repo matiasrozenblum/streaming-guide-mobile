@@ -14,9 +14,11 @@ export type ShareTarget =
 export type ShareOutcome =
     /** The target app took it. */
     | 'shared'
-    /** It went to the camera roll, either because that was the ask or as the
-     *  only way to reach an app that will not accept a handoff. */
+    /** It went to the camera roll, which was the ask. */
     | 'saved'
+    /** Saved, but the app it is meant for has to be opened by hand: it takes
+     *  no handoff, so the placa has to be picked from the gallery there. */
+    | 'manual'
     /** The person backed out. Not a failure, and nothing should be said. */
     | 'cancelled'
     /** The app is not on this phone. */
@@ -119,10 +121,14 @@ export async function sharePlaca(
 
     try {
         if (target === 'tiktok') {
+            // Opening TikTok straight away just lands on the feed, which looks
+            // like the button did nothing. Its share API lives behind their
+            // SDK and a registered client key, so until that exists the honest
+            // flow is: save the placa, say so, and let the caller offer to
+            // open TikTok for the upload.
             const saved = await saveToCameraRoll(fileUri);
             if (saved.outcome !== 'saved') return saved;
-            await Linking.openURL(PRESENCE.tiktok.scheme);
-            return { outcome: 'saved' };
+            return { outcome: 'manual' };
         }
 
         if (target === 'instagram') {
