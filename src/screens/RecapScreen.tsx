@@ -1,0 +1,344 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Header } from '../components/Header';
+import { PeriodSwitch } from '../components/recap/PeriodSwitch';
+import { PLACA_RATIO, PlacaCarousel, Slide } from '../components/recap/PlacaCarousel';
+import { ShareRow } from '../components/recap/ShareRow';
+import { useAuth } from '../context/AuthContext';
+import { RecapService } from '../services/recap.service';
+import { ShareTarget, sharePlaca } from '../services/placaShare';
+import { getTheme } from '../theme';
+import {
+    canRender,
+    PLACA_LABELS,
+    PLACA_ORDER,
+    PlacaKind,
+    Recap,
+    RecapPeriod,
+} from '../types/recap';
+import { trackEvent } from '../lib/analytics';
+
+const MONTHS = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/** "26 — 1 de noviembre" for a week, the API's own label for a month. */
+function rangeLabel(recap: Recap): string {
+    if (recap.period.type !== 'week') return recap.period.label;
+    const from = new Date(`${recap.period.from}T12:00:00Z`);
+    const to = new Date(`${recap.period.to}T12:00:00Z`);
+    return `${from.getUTCDate()} — ${to.getUTCDate()} de ${MONTHS[to.getUTCMonth()]}`;
+}
+
+/** What to say once a share has resolved. Cancelling says nothing. */
+const OUTCOME_MESSAGE: Record<string, string | null> = {
+    shared: null,
+    cancelled: null,
+    saved: 'Guardamos la placa en tu galería.',
+    missing: 'No encontramos esa app en tu teléfono.',
+    fallback: null,
+    error: 'No pudimos compartir la placa. Probá de nuevo.',
+};
+
+/** Caption, counter and the share row underneath the carousel. */
+const BLOCK_BELOW = 14 + 38 + 10 + 70 + 16;
+
+export const RecapScreen = () => {
+    const theme = getTheme('dark');
+    const { session } = useAuth();
+    const { width, height } = useWindowDimensions();
+
+    const [period, setPeriod] = useState<RecapPeriod>('week');
+    const [recap, setRecap] = useState<Recap | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+    const [current, setCurrent] = useState(0);
+    const [busy, setBusy] = useState<ShareTarget | null>(null);
+
+    /** Downloaded placas, keyed by period and kind. */
+    const [files, setFiles] = useState<Record<string, string>>({});
+
+    const kinds = useMemo<PlacaKind[]>(
+        () => (recap ? PLACA_ORDER.filter((kind) => canRender(kind, recap)) : []),
+        [recap],
+    );
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+        setCurrent(0);
+
+        RecapService.getMyRecap(period)
+            .then((data) => {
+                if (!cancelled) setRecap(data);
+            })
+            .catch(() => {
+                if (!cancelled) setError('No pudimos traer tu resumen. Probá de nuevo.');
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [period]);
+
+    /**
+     * The placas are downloaded as soon as the recap lands, one at a time.
+     *
+     * Each is a few hundred kilobytes and the site takes about 0.65s to render
+     * one, so firing all four at once buys nothing and spikes the server. By
+     * the time anyone has swiped and tapped, they are all on disk — and sharing
+     * is then instant rather than a spinner.
+     */
+    useEffect(() => {
+        const accessToken = session?.accessToken;
+        if (!recap?.enough_data || !accessToken || kinds.length === 0) return;
+        let cancelled = false;
+
+        void (async () => {
+            for (const kind of kinds) {
+                if (cancelled) return;
+                const key = `${period}:${recap.period.from}:${kind}`;
+                if (files[key]) continue;
+                try {
+                    const uri = await RecapService.downloadPlaca({
+                        period,
+                        from: recap.period.from,
+                        kind,
+                        accessToken,
+                    });
+                    if (!cancelled) setFiles((prev) => ({ ...prev, [key]: uri }));
+                } catch (downloadError) {
+                    console.warn('[Recap] could not download a placa', kind, downloadError);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+        // `files` is deliberately out: it changes on every download and would
+        // restart the loop. The `files[key]` check inside is only a shortcut.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [recap, kinds, period, session?.accessToken]);
+
+    const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!notice) return;
+        noticeTimer.current = setTimeout(() => setNotice(null), 4000);
+        return () => {
+            if (noticeTimer.current) clearTimeout(noticeTimer.current);
+        };
+    }, [notice]);
+
+    const slides = useMemo<Slide[]>(
+        () =>
+            kinds.map((kind) => ({
+                kind,
+                uri: recap ? (files[`${period}:${recap.period.from}:${kind}`] ?? null) : null,
+            })),
+        [kinds, files, period, recap],
+    );
+
+    const handleShare = useCallback(
+        async (target: ShareTarget) => {
+            const slide = slides[current];
+            if (!slide?.uri) {
+                setNotice('La placa todavía se está generando. Probá en un segundo.');
+                return;
+            }
+            setBusy(target);
+            try {
+                const { outcome, detail } = await sharePlaca(target, slide.uri);
+                if (detail) console.warn('[Recap] share failed', target, detail);
+                setNotice(OUTCOME_MESSAGE[outcome] ?? null);
+                void trackEvent('recap_share', {
+                    target,
+                    outcome,
+                    kind: slide.kind,
+                    period,
+                });
+            } finally {
+                setBusy(null);
+            }
+        },
+        [current, period, slides],
+    );
+
+    // The carousel gets whatever height is left once the chrome is accounted
+    // for, and never more than 74% of the width — the same proportion the
+    // website's mobile layout uses so the next placa peeks at the side.
+    const slideWidth = Math.min(
+        width * 0.74,
+        Math.max(200, height - 290 - BLOCK_BELOW) * PLACA_RATIO,
+    );
+
+    const body = () => {
+        if (loading) {
+            return (
+                <View style={styles.centered}>
+                    <ActivityIndicator color={theme.colors.primary} />
+                </View>
+            );
+        }
+
+        if (error) {
+            return (
+                <View style={styles.centered}>
+                    <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+                        {error}
+                    </Text>
+                </View>
+            );
+        }
+
+        if (recap && !recap.enough_data) {
+            const missing = Math.max(0, recap.minimum_plays - recap.totals.plays);
+            return (
+                <View style={styles.centered}>
+                    <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
+                        Todavía no alcanza
+                    </Text>
+                    <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+                        {missing === 1
+                            ? 'Te falta una reproducción para armar tu resumen.'
+                            : `Te faltan ${missing} reproducciones para armar tu resumen.`}
+                    </Text>
+                </View>
+            );
+        }
+
+        if (slides.length === 0) return null;
+
+        return (
+            <>
+                <PlacaCarousel
+                    slides={slides}
+                    slideWidth={slideWidth}
+                    screenWidth={width}
+                    onIndexChange={setCurrent}
+                />
+
+                <View style={styles.below}>
+                    <View style={styles.captionBlock}>
+                        <Text style={[styles.caption, { color: theme.colors.textPrimary }]}>
+                            {PLACA_LABELS[slides[current]?.kind ?? slides[0].kind]}
+                        </Text>
+                        <Text style={[styles.counter, { color: theme.colors.textSecondary }]}>
+                            {current + 1} de {slides.length} · Deslizá para ver más
+                        </Text>
+                    </View>
+
+                    <ShareRow onShare={handleShare} busy={busy} />
+                </View>
+            </>
+        );
+    };
+
+    return (
+        <SafeAreaView
+            edges={['top']}
+            style={[styles.screen, { backgroundColor: theme.colors.surface }]}
+        >
+            <Header />
+
+            <View style={styles.titleRow}>
+                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Mi resumen</Text>
+                <PeriodSwitch value={period} onChange={setPeriod} disabled={loading} />
+                {recap && (
+                    <Text style={[styles.range, { color: theme.colors.textSecondary }]}>
+                        {rangeLabel(recap)}
+                    </Text>
+                )}
+            </View>
+
+            {body()}
+
+            {notice && (
+                <View style={[styles.toast, { backgroundColor: theme.colors.background }]}>
+                    <Text style={[styles.toastText, { color: theme.colors.textPrimary }]}>{notice}</Text>
+                </View>
+            )}
+        </SafeAreaView>
+    );
+};
+
+const styles = StyleSheet.create({
+    screen: {
+        flex: 1,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 14,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: '800',
+        fontFamily: 'Outfit_700Bold',
+    },
+    range: {
+        fontSize: 14,
+    },
+    centered: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingHorizontal: 32,
+    },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+    },
+    message: {
+        fontSize: 15,
+        textAlign: 'center',
+    },
+    below: {
+        alignItems: 'center',
+        gap: 10,
+        paddingTop: 14,
+        paddingBottom: 16,
+    },
+    captionBlock: {
+        alignItems: 'center',
+        gap: 2,
+    },
+    caption: {
+        fontSize: 17,
+        fontWeight: '700',
+    },
+    counter: {
+        fontSize: 13,
+    },
+    toast: {
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: 16,
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    toastText: {
+        fontSize: 14,
+        textAlign: 'center',
+    },
+});

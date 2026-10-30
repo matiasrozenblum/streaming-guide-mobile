@@ -30,6 +30,30 @@ const getApiUrl = () => {
     return 'https://streaming-guide-backend-production.up.railway.app';
 };
 
+/**
+ * The website, which is where the recap placas are rendered.
+ *
+ * The placa is one component drawn at 1080x1920 and exported as a PNG; the app
+ * downloads that PNG rather than redrawing the design a third time, so what
+ * gets shared from a phone is byte-for-byte what the site shows.
+ */
+const getWebUrl = () => {
+    if (IS_STAGING || IS_DEV) return 'https://staging.laguiadelstreaming.com';
+    return 'https://laguiadelstreaming.com';
+};
+
+/** The apps the share sheet is allowed to look for and hand a placa to. */
+const SHARE_TARGETS = {
+    ios: ['instagram', 'instagram-stories', 'whatsapp', 'twitter', 'fb', 'tiktok', 'snssdk1233'],
+    android: [
+        'com.instagram.android',
+        'com.whatsapp',
+        'com.twitter.android',
+        'com.facebook.katana',
+        'com.zhiliaoapp.musically',
+    ],
+};
+
 const getAppIcon = () => {
     if (IS_STAGING) {
         return "./assets/app-icon-staging.png"; // Make sure this file exists!
@@ -121,7 +145,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
                 CFBundleDisplayName: getAppName(),
-                CFBundleName: "La Guía"
+                CFBundleName: "La Guía",
+                // LSApplicationQueriesSchemes is not listed here on purpose: the
+                // react-native-share plugin appends its own `ios` list to this
+                // key, so declaring the schemes in both places just writes every
+                // one of them twice.
+                NSPhotoLibraryAddUsageDescription:
+                    "Para guardar en tu carrete las placas de Mi resumen que elijas descargar."
             }
         },
         android: {
@@ -130,6 +160,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                 backgroundColor: "#0f172a"
             },
             package: getUniqueIdentifier(),
+            // Android 11+ hides other apps unless they are declared, which is
+            // what lets the per-network buttons know where they can send a placa.
+            queries: SHARE_TARGETS.android.map((packageName) => ({ package: packageName })),
             googleServicesFile: "./google-services.json",
             edgeToEdgeEnabled: true,
             predictiveBackGestureEnabled: false,
@@ -139,6 +172,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
         extra: {
             apiUrl: getApiUrl(),
+            webUrl: getWebUrl(),
+            /**
+             * Instagram refuses a Stories share without a registered Facebook
+             * app id. Empty is a supported state: the Instagram button falls
+             * back to the system share sheet and says so.
+             */
+            facebookAppId: process.env.FACEBOOK_APP_ID ?? '',
             posthogApiKey: "phc_ioX3gwDuENT8MoUWSacARsCFVE6bSbKaEh5u7Mie5oK",
             posthogHost: "https://app.posthog.com",
             datadogAppId: process.env.DATADOG_APP_ID ?? '',
@@ -190,7 +230,23 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             withManifestMessagingFix,
             "@react-native-community/datetimepicker",
             "expo-font",
-            "expo-web-browser"
+            "expo-web-browser",
+            [
+                "react-native-share",
+                {
+                    ios: SHARE_TARGETS.ios,
+                    android: SHARE_TARGETS.android,
+                    enableBase64ShareAndroid: true
+                }
+            ],
+            [
+                "expo-media-library",
+                {
+                    savePhotosPermission:
+                        "Para guardar en tu carrete las placas de Mi resumen que elijas descargar.",
+                    isAccessMediaLocationEnabled: false
+                }
+            ]
         ]
     };
 };
