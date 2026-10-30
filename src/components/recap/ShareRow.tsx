@@ -28,10 +28,17 @@ const ACTIONS: Action[] = [
 export const ShareRow = ({
     onShare,
     busy,
+    disabled,
 }: {
     onShare: (target: ShareTarget) => void;
-    /** Which target is in flight, so only that one shows a spinner. */
+    /**
+     * Which target should show a spinner — not the same thing as which one is
+     * in flight. The caller holds this back for a moment so a fast action
+     * never flashes one.
+     */
     busy: ShareTarget | null;
+    /** Blocks every button while something is in flight, without dimming them. */
+    disabled: boolean;
 }) => {
     const theme = getTheme('dark');
 
@@ -45,7 +52,7 @@ export const ShareRow = ({
                         key={action.id}
                         accessibilityRole="button"
                         accessibilityLabel={action.label}
-                        disabled={busy !== null}
+                        disabled={disabled}
                         onPress={() => onShare(action.id)}
                         style={styles.item}
                     >
@@ -57,7 +64,10 @@ export const ShareRow = ({
                                         ? theme.colors.primary
                                         : theme.colors.background,
                                     borderColor: isPrimary ? 'transparent' : theme.colors.border,
-                                    opacity: busy !== null && !isBusy ? 0.4 : 1,
+                                    // Deliberately not dimmed while another
+                                    // button works: half a second of every
+                                    // icon fading out and back reads as a
+                                    // flicker, not as feedback.
                                 },
                             ]}
                         >

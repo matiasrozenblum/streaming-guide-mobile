@@ -71,6 +71,22 @@ export const RecapScreen = () => {
     const [current, setCurrent] = useState(0);
     const [busy, setBusy] = useState<ShareTarget | null>(null);
     /**
+     * The spinner lags the work on purpose. Saving a placa takes a few hundred
+     * milliseconds, and a spinner that appears and vanishes inside that window
+     * reads as a glitch rather than as progress — so it only shows up if the
+     * action is still going after a moment.
+     */
+    const [showBusy, setShowBusy] = useState<ShareTarget | null>(null);
+
+    useEffect(() => {
+        if (!busy) {
+            setShowBusy(null);
+            return;
+        }
+        const timer = setTimeout(() => setShowBusy(busy), 300);
+        return () => clearTimeout(timer);
+    }, [busy]);
+    /**
      * Everything below the title row, and the block under the carousel inside
      * it, both measured rather than derived from the window: the header, the
      * title row and the tab bar are all different heights on different phones,
@@ -301,7 +317,11 @@ export const RecapScreen = () => {
                         </Text>
                     </View>
 
-                    <ShareRow onShare={handleShare} busy={busy} />
+                    <ShareRow
+                        onShare={handleShare}
+                        busy={showBusy}
+                        disabled={busy !== null}
+                    />
                 </View>
             </>
         );
