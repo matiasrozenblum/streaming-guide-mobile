@@ -7,6 +7,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Header } from '../components/Header';
 import { PeriodSwitch } from '../components/recap/PeriodSwitch';
 import { PLACA_RATIO, PlacaCarousel, Slide } from '../components/recap/PlacaCarousel';
@@ -51,6 +52,7 @@ const OUTCOME_MESSAGE: Record<string, string | null> = {
 export const RecapScreen = () => {
     const theme = getTheme('dark');
     const { session } = useAuth();
+    const tabBarHeight = useBottomTabBarHeight();
     const { width } = useWindowDimensions();
 
     const [period, setPeriod] = useState<RecapPeriod>('week');
@@ -61,12 +63,13 @@ export const RecapScreen = () => {
     const [current, setCurrent] = useState(0);
     const [busy, setBusy] = useState<ShareTarget | null>(null);
     /**
-     * How tall the carousel actually gets, measured rather than derived from
-     * the window: the header, the title row and the tab bar are all different
-     * heights on different phones, and a placa sized against a guess either
-     * overflows or wastes the difference.
+     * Everything below the title row, and the block under the carousel inside
+     * it, both measured rather than derived from the window: the header, the
+     * title row and the tab bar are all different heights on different phones,
+     * and a placa sized against a guess either overflows or wastes the room.
      */
-    const [carouselHeight, setCarouselHeight] = useState(0);
+    const [available, setAvailable] = useState(0);
+    const [belowHeight, setBelowHeight] = useState(0);
 
     /** Downloaded placas, keyed by period and kind. */
     const [files, setFiles] = useState<Record<string, string>>({});
@@ -182,8 +185,12 @@ export const RecapScreen = () => {
     );
 
     // Never wider than 74% of the screen — the same proportion the website's
-    // mobile layout uses, so the next placa peeks at either side.
-    const slideWidth = Math.min(width * 0.74, carouselHeight * PLACA_RATIO);
+    // mobile layout uses, so the next placa peeks at either side — and never
+    // taller than what is left once the caption and the buttons have theirs.
+    const slideWidth = Math.min(
+        width * 0.74,
+        Math.max(0, available - belowHeight) * PLACA_RATIO,
+    );
 
     const body = () => {
         if (loading) {
@@ -222,25 +229,26 @@ export const RecapScreen = () => {
 
         if (slides.length === 0) return null;
 
+        // Laid out top down rather than centred: the caption belongs right
+        // under the placa it names, so any space left over goes to the bottom
+        // instead of opening a gap between the two.
         return (
             <>
+                {slideWidth > 0 && (
+                    <PlacaCarousel
+                        slides={slides}
+                        slideWidth={slideWidth}
+                        screenWidth={width}
+                        onIndexChange={setCurrent}
+                    />
+                )}
+
                 <View
-                    style={styles.carouselArea}
+                    style={styles.below}
                     onLayout={(event) =>
-                        setCarouselHeight(event.nativeEvent.layout.height)
+                        setBelowHeight(event.nativeEvent.layout.height)
                     }
                 >
-                    {slideWidth > 0 && (
-                        <PlacaCarousel
-                            slides={slides}
-                            slideWidth={slideWidth}
-                            screenWidth={width}
-                            onIndexChange={setCurrent}
-                        />
-                    )}
-                </View>
-
-                <View style={styles.below}>
                     <View style={styles.captionBlock}>
                         <Text style={[styles.caption, { color: theme.colors.textPrimary }]}>
                             {PLACA_LABELS[slides[current]?.kind ?? slides[0].kind]}
@@ -259,7 +267,15 @@ export const RecapScreen = () => {
     return (
         <SafeAreaView
             edges={['top']}
-            style={[styles.screen, { backgroundColor: theme.colors.surface }]}
+            style={[
+                styles.screen,
+                {
+                    backgroundColor: theme.colors.surface,
+                    // The tab bar is absolutely positioned, so without this the
+                    // share buttons sit underneath it.
+                    paddingBottom: tabBarHeight,
+                },
+            ]}
         >
             <Header />
 
@@ -273,7 +289,12 @@ export const RecapScreen = () => {
                 )}
             </View>
 
-            {body()}
+            <View
+                style={styles.body}
+                onLayout={(event) => setAvailable(event.nativeEvent.layout.height)}
+            >
+                {body()}
+            </View>
 
             {notice && (
                 <View style={[styles.toast, { backgroundColor: theme.colors.background }]}>
@@ -305,9 +326,8 @@ const styles = StyleSheet.create({
     range: {
         fontSize: 14,
     },
-    carouselArea: {
+    body: {
         flex: 1,
-        justifyContent: 'center',
     },
     centered: {
         flex: 1,
