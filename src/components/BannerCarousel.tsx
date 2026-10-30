@@ -145,6 +145,13 @@ export const BannerCarousel = ({ banners }: Props) => {
                 snapToAlignment="start"
                 decelerationRate="fast"
                 showsHorizontalScrollIndicator={false}
+                // The loop clones sit at both ends of the content, so wrapping always
+                // hits the scroll edge. Android 12+ answers that with its stretch
+                // overscroll, which distorts the whole banner right before the jump to
+                // the real item. iOS snaps without bouncing, but a slow drag past the
+                // clone would still rubber-band against the background.
+                overScrollMode="never"
+                bounces={false}
                 onScrollBeginDrag={handleScrollBeginDrag}
                 onMomentumScrollEnd={handleScrollEnd}
                 getItemLayout={(_, index) => ({
