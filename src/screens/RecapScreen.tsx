@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
-    Linking,
     StyleSheet,
     Text,
     useWindowDimensions,
@@ -51,7 +49,6 @@ const OUTCOME_MESSAGE: Record<string, string | null> = {
     shared: null,
     cancelled: null,
     saved: 'Guardamos la placa en tu galería.',
-    manual: 'Guardamos la placa en tu galería.',
     missing: 'No encontramos esa app en tu teléfono.',
     fallback: null,
     error: 'No pudimos compartir la placa. Probá de nuevo.',
@@ -195,25 +192,6 @@ export const RecapScreen = () => {
                 const { outcome, detail } = await sharePlaca(target, slide.uri);
                 if (detail) console.warn('[Recap] share failed', target, detail);
                 setNotice(OUTCOME_MESSAGE[outcome] ?? null);
-
-                // TikTok takes no handoff, so the placa is in the gallery and
-                // the upload has to start there. Said out loud, with the trip
-                // to the app offered rather than taken.
-                if (outcome === 'manual') {
-                    Alert.alert(
-                        'Guardamos la placa',
-                        'TikTok no permite recibir una imagen desde otra app, así que la dejamos en tu galería para que la subas desde ahí.',
-                        [
-                            { text: 'Ahora no', style: 'cancel' },
-                            {
-                                text: 'Abrir TikTok',
-                                onPress: () => {
-                                    void Linking.openURL('tiktok://');
-                                },
-                            },
-                        ],
-                    );
-                }
                 void trackEvent('recap_share', {
                     target,
                     outcome,
@@ -333,7 +311,10 @@ export const RecapScreen = () => {
             style={[
                 styles.screen,
                 {
-                    backgroundColor: theme.colors.surface,
+                    // The same surface the rest of the app sits on, header
+                    // included — the section used to be a shade darker than
+                    // everything around it.
+                    backgroundColor: theme.colors.background,
                     // The tab bar is absolutely positioned, so without this the
                     // share buttons sit underneath it.
                     paddingBottom: tabBarHeight,

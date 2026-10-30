@@ -44,13 +44,12 @@ const getWebUrl = () => {
 
 /** The apps the share sheet is allowed to look for and hand a placa to. */
 const SHARE_TARGETS = {
-    ios: ['instagram', 'instagram-stories', 'whatsapp', 'twitter', 'fb', 'tiktok', 'snssdk1233'],
+    ios: ['instagram', 'instagram-stories', 'whatsapp', 'twitter', 'fb'],
     android: [
         'com.instagram.android',
         'com.whatsapp',
         'com.twitter.android',
         'com.facebook.katana',
-        'com.zhiliaoapp.musically',
     ],
 };
 

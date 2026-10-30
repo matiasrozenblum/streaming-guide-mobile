@@ -5,7 +5,6 @@ import Share, { Social } from 'react-native-share';
 
 export type ShareTarget =
     | 'instagram'
-    | 'tiktok'
     | 'whatsapp'
     | 'x'
     | 'facebook'
@@ -16,9 +15,6 @@ export type ShareOutcome =
     | 'shared'
     /** It went to the camera roll, which was the ask. */
     | 'saved'
-    /** Saved, but the app it is meant for has to be opened by hand: it takes
-     *  no handoff, so the placa has to be picked from the gallery there. */
-    | 'manual'
     /** The person backed out. Not a failure, and nothing should be said. */
     | 'cancelled'
     /** The app is not on this phone. */
@@ -43,7 +39,6 @@ const PRESENCE: Record<
     { scheme: string; androidPackage: string }
 > = {
     instagram: { scheme: 'instagram://', androidPackage: 'com.instagram.android' },
-    tiktok: { scheme: 'tiktok://', androidPackage: 'com.zhiliaoapp.musically' },
     whatsapp: { scheme: 'whatsapp://', androidPackage: 'com.whatsapp' },
     x: { scheme: 'twitter://', androidPackage: 'com.twitter.android' },
     facebook: { scheme: 'fb://', androidPackage: 'com.facebook.katana' },
@@ -101,9 +96,6 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  * - Instagram takes a Stories handoff, but only against a registered Facebook
  *   app id. Without one it is the system sheet or nothing.
  * - WhatsApp, X and Facebook take an image through their own share intent.
- * - TikTok publishes no share intent at all outside its SDK, so the honest
- *   path is to put the placa in the camera roll and open the app at the
- *   point where it asks you to pick one.
  */
 export async function sharePlaca(
     target: ShareTarget,
@@ -120,17 +112,6 @@ export async function sharePlaca(
     if (!(await isInstalled(target))) return { outcome: 'missing' };
 
     try {
-        if (target === 'tiktok') {
-            // Opening TikTok straight away just lands on the feed, which looks
-            // like the button did nothing. Its share API lives behind their
-            // SDK and a registered client key, so until that exists the honest
-            // flow is: save the placa, say so, and let the caller offer to
-            // open TikTok for the upload.
-            const saved = await saveToCameraRoll(fileUri);
-            if (saved.outcome !== 'saved') return saved;
-            return { outcome: 'manual' };
-        }
-
         if (target === 'instagram') {
             if (!FACEBOOK_APP_ID) return systemSheet(fileUri);
             await Share.shareSingle({

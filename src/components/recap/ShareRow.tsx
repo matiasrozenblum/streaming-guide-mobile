@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getTheme } from '../../theme';
@@ -14,11 +14,12 @@ interface Action {
 
 /**
  * The order the website uses, with "Guardar" last because it is the one that
- * does not leave the app.
+ * does not leave the app. The label survives as the accessibility name even
+ * though it is no longer drawn: a screen reader still has to announce each
+ * one, and a bare glyph announces nothing.
  */
 const ACTIONS: Action[] = [
     { id: 'instagram', label: 'Instagram', brand: 'instagram' },
-    { id: 'tiktok', label: 'TikTok', brand: 'tiktok' },
     { id: 'whatsapp', label: 'WhatsApp', brand: 'whatsapp' },
     { id: 'x', label: 'X', brand: 'x-twitter' },
     { id: 'facebook', label: 'Facebook', brand: 'facebook-f' },
@@ -63,7 +64,14 @@ export const ShareRow = ({
                                     backgroundColor: isPrimary
                                         ? theme.colors.primary
                                         : theme.colors.background,
-                                    borderColor: isPrimary ? 'transparent' : theme.colors.border,
+                                    // The dark navy the section used to have as
+                                    // its background. Against the lighter slate
+                                    // the app uses everywhere, it reads as a
+                                    // ring; the old border was so close to the
+                                    // surface that the circles dissolved.
+                                    borderColor: isPrimary
+                                        ? 'transparent'
+                                        : theme.colors.surface,
                                     // Deliberately not dimmed while another
                                     // button works: half a second of every
                                     // icon fading out and back reads as a
@@ -84,9 +92,6 @@ export const ShareRow = ({
                                 <MaterialIcons name="file-download" size={22} color="#FFFFFF" />
                             )}
                         </View>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
-                            {action.label}
-                        </Text>
                     </TouchableOpacity>
                 );
             })}
@@ -97,14 +102,12 @@ export const ShareRow = ({
 const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
+        gap: 14,
     },
     item: {
         alignItems: 'center',
-        gap: 6,
-        width: 56,
     },
     circle: {
         width: 44,
@@ -113,8 +116,5 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    label: {
-        fontSize: 11,
     },
 });
