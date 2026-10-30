@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **"Mi resumen" en la app**: la cuarta pestaña, visible solo con sesión iniciada, con el mismo layout que la web mobile: selector de semana/mes, las cuatro placas como carrusel con snap y la siguiente asomando al costado, y debajo el epígrafe y los botones por red social. **La placa no se vuelve a dibujar**: es un componente que el sitio renderiza a 1080x1920 y exporta como PNG, y la app descarga ese PNG. Maquetarla de nuevo en React Native la habría convertido en una tercera implementación que se desincroniza al primer ajuste, que es exactamente lo que se evitó en la web haciendo que la tarjeta y la imagen compartible sean el mismo componente. La ruta del sitio acepta ahora el JWT del backend, que es el token que la app ya tiene. Las cuatro se bajan de a una apenas llega el resumen y quedan en el cache en disco, así que compartir es instantáneo.
+- **Botones por red social, cada uno por el camino más directo que esa red permite**, que no es el mismo para todas. Instagram acepta un handoff a Stories, pero sólo contra un Facebook app id registrado (`FACEBOOK_APP_ID`); sin él ese botón cae en la hoja del sistema. WhatsApp, X y Facebook aceptan la imagen por su propio intent. TikTok no publica ninguno fuera de su SDK, así que ahí la placa se guarda en la galería y se abre la app en el punto donde te pide elegir una. "Guardar" la manda al carrete. Si una app no está instalada se dice; si el handoff falla queda la hoja del sistema; y cancelar no dice nada, porque cancelar es una decisión y no un error.
+- Permiso de **escritura en la galería** (`NSPhotoLibraryAddUsageDescription` en iOS, `expo-media-library` en Android) para "Guardar" y para el camino de TikTok, y visibilidad de las apps destino (`LSApplicationQueriesSchemes` en iOS, `<queries>` en Android): sin declararlas, los dos sistemas responden que ninguna está instalada y todo cae siempre en la hoja del sistema.
+
+---
+
 ## [1.0.20] - 2026-09-08
 
 ### Fixed

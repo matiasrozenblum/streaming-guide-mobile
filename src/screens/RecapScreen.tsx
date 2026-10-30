@@ -48,13 +48,10 @@ const OUTCOME_MESSAGE: Record<string, string | null> = {
     error: 'No pudimos compartir la placa. Probá de nuevo.',
 };
 
-/** Caption, counter and the share row underneath the carousel. */
-const BLOCK_BELOW = 14 + 38 + 10 + 70 + 16;
-
 export const RecapScreen = () => {
     const theme = getTheme('dark');
     const { session } = useAuth();
-    const { width, height } = useWindowDimensions();
+    const { width } = useWindowDimensions();
 
     const [period, setPeriod] = useState<RecapPeriod>('week');
     const [recap, setRecap] = useState<Recap | null>(null);
@@ -63,6 +60,13 @@ export const RecapScreen = () => {
     const [notice, setNotice] = useState<string | null>(null);
     const [current, setCurrent] = useState(0);
     const [busy, setBusy] = useState<ShareTarget | null>(null);
+    /**
+     * How tall the carousel actually gets, measured rather than derived from
+     * the window: the header, the title row and the tab bar are all different
+     * heights on different phones, and a placa sized against a guess either
+     * overflows or wastes the difference.
+     */
+    const [carouselHeight, setCarouselHeight] = useState(0);
 
     /** Downloaded placas, keyed by period and kind. */
     const [files, setFiles] = useState<Record<string, string>>({});
@@ -177,13 +181,9 @@ export const RecapScreen = () => {
         [current, period, slides],
     );
 
-    // The carousel gets whatever height is left once the chrome is accounted
-    // for, and never more than 74% of the width — the same proportion the
-    // website's mobile layout uses so the next placa peeks at the side.
-    const slideWidth = Math.min(
-        width * 0.74,
-        Math.max(200, height - 290 - BLOCK_BELOW) * PLACA_RATIO,
-    );
+    // Never wider than 74% of the screen — the same proportion the website's
+    // mobile layout uses, so the next placa peeks at either side.
+    const slideWidth = Math.min(width * 0.74, carouselHeight * PLACA_RATIO);
 
     const body = () => {
         if (loading) {
@@ -224,12 +224,21 @@ export const RecapScreen = () => {
 
         return (
             <>
-                <PlacaCarousel
-                    slides={slides}
-                    slideWidth={slideWidth}
-                    screenWidth={width}
-                    onIndexChange={setCurrent}
-                />
+                <View
+                    style={styles.carouselArea}
+                    onLayout={(event) =>
+                        setCarouselHeight(event.nativeEvent.layout.height)
+                    }
+                >
+                    {slideWidth > 0 && (
+                        <PlacaCarousel
+                            slides={slides}
+                            slideWidth={slideWidth}
+                            screenWidth={width}
+                            onIndexChange={setCurrent}
+                        />
+                    )}
+                </View>
 
                 <View style={styles.below}>
                     <View style={styles.captionBlock}>
@@ -295,6 +304,10 @@ const styles = StyleSheet.create({
     },
     range: {
         fontSize: 14,
+    },
+    carouselArea: {
+        flex: 1,
+        justifyContent: 'center',
     },
     centered: {
         flex: 1,
