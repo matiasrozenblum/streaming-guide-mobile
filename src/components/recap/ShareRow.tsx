@@ -61,14 +61,16 @@ export const ShareRow = ({
                             style={[
                                 styles.circle,
                                 {
+                                    // The dark navy the section used to have as
+                                    // its background, filled rather than only
+                                    // outlined: against the lighter slate the
+                                    // app uses everywhere it reads as a solid
+                                    // circle. The old fill was the surface
+                                    // colour itself, so the buttons dissolved
+                                    // into the screen.
                                     backgroundColor: isPrimary
                                         ? theme.colors.primary
-                                        : theme.colors.background,
-                                    // The dark navy the section used to have as
-                                    // its background. Against the lighter slate
-                                    // the app uses everywhere, it reads as a
-                                    // ring; the old border was so close to the
-                                    // surface that the circles dissolved.
+                                        : theme.colors.surface,
                                     borderColor: isPrimary
                                         ? 'transparent'
                                         : theme.colors.surface,
