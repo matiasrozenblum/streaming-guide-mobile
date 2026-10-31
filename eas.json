@@ -9,13 +9,15 @@
             "distribution": "internal",
             "env": {
                 "APP_VARIANT": "development"
-            }
+            },
+            "environment": "development"
         },
         "preview": {
             "distribution": "internal",
             "env": {
                 "APP_VARIANT": "staging"
-            }
+            },
+            "environment": "preview"
         },
         "preview-simulator": {
             "extends": "preview",
@@ -27,13 +29,15 @@
             "autoIncrement": true,
             "env": {
                 "APP_VARIANT": "staging"
-            }
+            },
+            "environment": "preview"
         },
         "production": {
             "autoIncrement": true,
             "env": {
                 "APP_VARIANT": "production"
-            }
+            },
+            "environment": "production"
         },
         "production-apk": {
             "extends": "production",
