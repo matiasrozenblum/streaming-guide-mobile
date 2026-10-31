@@ -172,9 +172,10 @@ export function RecapIntroSheet({ visible, onContinue, onSignOut }: ViewProps) {
                         style={StyleSheet.absoluteFill}
                     />
 
-                    {/* Decorative: the sheet is deliberately not dismissible. */}
-                    <View style={styles.handle} />
-
+                    {/* No grab handle on purpose: this sheet cannot be
+                        dragged away — the only ways past it are accepting or
+                        signing out — and a handle would promise a gesture that
+                        does not exist. */}
                     <PlacaStage />
 
                     <View style={styles.copyBlock}>
@@ -359,14 +360,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.5,
         shadowRadius: 30,
         elevation: 24,
-    },
-    handle: {
-        width: 44,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: '#475569',
-        marginTop: 10,
-        marginBottom: 2,
     },
     stage: {
         width: '100%',
