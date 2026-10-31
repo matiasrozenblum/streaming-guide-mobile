@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Header } from '../components/Header';
+import { EmptyRecap } from '../components/recap/EmptyRecap';
 import { PeriodSwitch } from '../components/recap/PeriodSwitch';
 import { PLACA_RATIO, PlacaCarousel, Slide } from '../components/recap/PlacaCarousel';
 import { ShareRow } from '../components/recap/ShareRow';
@@ -233,19 +234,7 @@ export const RecapScreen = () => {
         }
 
         if (recap && !recap.enough_data) {
-            const missing = Math.max(0, recap.minimum_plays - recap.totals.plays);
-            return (
-                <View style={styles.centered}>
-                    <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
-                        Todavía no alcanza
-                    </Text>
-                    <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
-                        {missing === 1
-                            ? 'Te falta una reproducción para armar tu resumen.'
-                            : `Te faltan ${missing} reproducciones para armar tu resumen.`}
-                    </Text>
-                </View>
-            );
+            return <EmptyRecap recap={recap} />;
         }
 
         if (slides.length === 0) return null;
@@ -374,10 +363,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 8,
         paddingHorizontal: 32,
-    },
-    emptyTitle: {
-        fontSize: 20,
-        fontWeight: '700',
     },
     message: {
         fontSize: 15,
