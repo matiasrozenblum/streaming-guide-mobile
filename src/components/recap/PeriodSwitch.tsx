@@ -20,7 +20,10 @@ export const PeriodSwitch = ({
     const theme = getTheme('dark');
 
     return (
-        <View style={[styles.track, { backgroundColor: theme.colors.background }]}>
+        // The same dark navy the share buttons use. Its old background was the
+        // colour the whole screen now has, so the unselected half had no edge
+        // of its own and the toggle read as one floating pill.
+        <View style={[styles.track, { backgroundColor: theme.colors.surface }]}>
             {OPTIONS.map((option) => {
                 const selected = option.id === value;
                 return (
