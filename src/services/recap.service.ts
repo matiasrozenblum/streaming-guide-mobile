@@ -16,12 +16,41 @@ function placasDirectory(): Directory {
 }
 
 /**
- * A placa is identified by the period it covers, not just "week": a file for
- * last week must not be served for this one. `from` is the period's first day,
- * which the recap already carries.
+ * A placa is identified by the days it covers, not just "week".
+ *
+ * Both ends matter. The recap is published in instalments — the week opens on
+ * Friday with Monday to Friday in it, takes Saturday on Saturday evening and
+ * closes on Sunday — so one week produces three different placas that all
+ * start on the same Monday. Keying on `from` alone served Friday's picture all
+ * weekend, with a date on it that no longer matched the screen around it.
  */
-function placaFileName(period: RecapPeriod, from: string, kind: PlacaKind): string {
-    return `${period}-${from}-${kind}.png`;
+function placaFileName(
+    period: RecapPeriod,
+    from: string,
+    to: string,
+    kind: PlacaKind,
+): string {
+    return `${period}-${from}-${to}-${kind}.png`;
+}
+
+/**
+ * Drop the placas of earlier instalments of this same period type.
+ *
+ * Without this the cache keeps every version of every week forever. The OS
+ * empties this directory under pressure, but not before it has grown for
+ * months, and nothing in here is worth keeping once its dates have passed.
+ */
+function pruneStale(directory: Directory, keep: string): void {
+    try {
+        for (const entry of directory.list()) {
+            const name = entry.name;
+            if (name.endsWith('.png') && !name.startsWith(keep)) {
+                new File(directory, name).delete();
+            }
+        }
+    } catch (error) {
+        console.warn('[Recap] could not prune the placa cache', error);
+    }
 }
 
 export const RecapService = {
@@ -44,16 +73,21 @@ export const RecapService = {
     downloadPlaca: async ({
         period,
         from,
+        to,
         kind,
         accessToken,
     }: {
         period: RecapPeriod;
         from: string;
+        to: string;
         kind: PlacaKind;
         accessToken: string;
     }): Promise<string> => {
-        const file = new File(placasDirectory(), placaFileName(period, from, kind));
+        const directory = placasDirectory();
+        const file = new File(directory, placaFileName(period, from, to, kind));
         if (file.exists) return file.uri;
+
+        pruneStale(directory, `${period}-${from}-${to}-`);
 
         const downloaded = await File.downloadFileAsync(
             `${WEB_URL}/api/og/recap?period=${period}&kind=${kind}`,

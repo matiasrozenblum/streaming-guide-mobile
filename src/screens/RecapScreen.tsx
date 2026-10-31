@@ -139,12 +139,13 @@ export const RecapScreen = () => {
         void (async () => {
             for (const kind of kinds) {
                 if (cancelled) return;
-                const key = `${period}:${recap.period.from}:${kind}`;
+                const key = `${period}:${recap.period.from}:${recap.period.to}:${kind}`;
                 if (files[key]) continue;
                 try {
                     const uri = await RecapService.downloadPlaca({
                         period,
                         from: recap.period.from,
+                        to: recap.period.to,
                         kind,
                         accessToken,
                     });
@@ -176,7 +177,11 @@ export const RecapScreen = () => {
         () =>
             kinds.map((kind) => ({
                 kind,
-                uri: recap ? (files[`${period}:${recap.period.from}:${kind}`] ?? null) : null,
+                uri: recap
+                    ? (files[
+                          `${period}:${recap.period.from}:${recap.period.to}:${kind}`
+                      ] ?? null)
+                    : null,
             })),
         [kinds, files, period, recap],
     );
