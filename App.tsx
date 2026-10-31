@@ -12,6 +12,7 @@ import { VideoPlayerProvider } from './src/context/VideoPlayerContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { LoginModalProvider } from './src/context/LoginModalContext';
 import { MobileVideoPlayer } from './src/components/VideoPlayer/MobileVideoPlayer';
+import { RecapIntroGate } from './src/components/recap/RecapIntroSheet';
 import { paperDarkTheme } from './src/theme';
 
 function AppContent() {
@@ -42,6 +43,8 @@ function AppContent() {
         >
           <RootNavigator />
           <MobileVideoPlayer />
+          {/* Inside the container so accepting can jump straight to the tab. */}
+          <RecapIntroGate />
         </NavigationContainer>
       </VideoPlayerProvider>
     </LoginModalProvider>
@@ -60,6 +63,7 @@ import {
   Outfit_400Regular,
   Outfit_600SemiBold,
   Outfit_700Bold,
+  Outfit_800ExtraBold,
 } from '@expo-google-fonts/outfit';
 
 export default function App() {
@@ -75,6 +79,7 @@ export default function App() {
     Outfit_400Regular,
     Outfit_600SemiBold,
     Outfit_700Bold,
+    Outfit_800ExtraBold,
   });
 
   if (!fontsLoaded) {
