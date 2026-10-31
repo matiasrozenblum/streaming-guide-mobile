@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.1.0] - 2026-10-31
+
 ### Added
 - **Cada perfil de build declara de qué entorno de EAS lee sus variables** (`environment` en `eas.json`): los perfiles traían el `APP_VARIANT` pero no decían si tomaban las variables de `production`, `preview` o `development`, y la documentación de Expo no define qué pasa cuando falta. Con `FACEBOOK_APP_ID` entrando en juego eso dejó de ser aceptable: un build sin la variable compila igual y el botón de Instagram cae en la hoja del sistema sin ningún error visible, que es exactamente la clase de falla que no se descubre hasta tener la app publicada.
 - **La placa cacheada se identifica por los dos extremos del período**: ahora que el resumen se publica por tandas —viernes, sábado y domingo—, una misma semana produce tres placas distintas que arrancan todas el mismo lunes. El nombre del archivo sólo llevaba el día inicial, así que la del viernes se servía todo el fin de semana, con una fecha impresa que ya no coincidía con la de la pantalla alrededor. Se suma el día final al nombre, y al bajar una tanda nueva se borran las anteriores de ese mismo período: si no, el caché guardaba todas las versiones de todas las semanas para siempre.
