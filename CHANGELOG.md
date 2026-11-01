@@ -8,16 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
-
-- **Tocar el aviso de "llegó tu resumen" abre Mi resumen**: la push que manda el backend viaja con `data.type = recap`, y la app la encamina tanto si estaba en segundo plano como si arrancó desde cero — en ese segundo caso con la misma espera que ya usaba el camino de streamers, porque el navegador de pantallas no está listo en el instante en que la app abre.
-- **Dos interruptores en el perfil** para apagar los avisos de resumen semanal y mensual por separado. Son optimistas: el switch se mueve con el dedo y vuelve solo si la llamada falla, porque esperar un viaje de red para animar un toggle hace sentir rota la app, y equivocarse por un momento cuesta a lo sumo un aviso.
-
 ---
 
 ## [1.1.0] - 2026-10-31
 
 ### Added
+- **Tocar el aviso de "llegó tu resumen" abre Mi resumen**: la push que manda el backend viaja con `data.type = recap`, y la app la encamina tanto si estaba en segundo plano como si arrancó desde cero — en ese segundo caso con la misma espera que ya usaba el camino de streamers, porque el navegador de pantallas no está listo en el instante en que la app abre.
+- **Dos interruptores en el perfil** para apagar los avisos de resumen semanal y mensual por separado. Son optimistas: el switch se mueve con el dedo y vuelve solo si la llamada falla, porque esperar un viaje de red para animar un toggle hace sentir rota la app, y equivocarse por un momento cuesta a lo sumo un aviso.
+
+---
 - **Cada perfil de build declara de qué entorno de EAS lee sus variables** (`environment` en `eas.json`): los perfiles traían el `APP_VARIANT` pero no decían si tomaban las variables de `production`, `preview` o `development`, y la documentación de Expo no define qué pasa cuando falta. Con `FACEBOOK_APP_ID` entrando en juego eso dejó de ser aceptable: un build sin la variable compila igual y el botón de Instagram cae en la hoja del sistema sin ningún error visible, que es exactamente la clase de falla que no se descubre hasta tener la app publicada.
 - **La placa cacheada se identifica por los dos extremos del período**: ahora que el resumen se publica por tandas —viernes, sábado y domingo—, una misma semana produce tres placas distintas que arrancan todas el mismo lunes. El nombre del archivo sólo llevaba el día inicial, así que la del viernes se servía todo el fin de semana, con una fecha impresa que ya no coincidía con la de la pantalla alrededor. Se suma el día final al nombre, y al bajar una tanda nueva se borran las anteriores de ese mismo período: si no, el caché guardaba todas las versiones de todas las semanas para siempre.
 - **El estado de "todavía no alcanza" pasa a ser el diseño de Paper**: una placa vacía de contorno punteado, el texto debajo, la barra de progreso y el acceso a la grilla en vivo, en lugar de dos líneas centradas. El marcador dice contra qué: "Vas 1 de 3 reproducciones" con la meta al costado, que es la misma `minimum_plays` que manda la API. El contorno punteado va en SVG: React Native lo dibuja sólido en Android apenas la vista tiene esquinas redondeadas. La placa vacía toma el alto que le queda libre hasta el tamaño del diseño, así que entra arriba de la barra de pestañas sin scroll en cualquier teléfono.
