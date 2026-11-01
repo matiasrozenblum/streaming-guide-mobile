@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Tocar el aviso de "llegó tu resumen" abre Mi resumen**: la push que manda el backend viaja con `data.type = recap`, y la app la encamina tanto si estaba en segundo plano como si arrancó desde cero — en ese segundo caso con la misma espera que ya usaba el camino de streamers, porque el navegador de pantallas no está listo en el instante en que la app abre.
+- **Dos interruptores en el perfil** para apagar los avisos de resumen semanal y mensual por separado. Son optimistas: el switch se mueve con el dedo y vuelve solo si la llamada falla, porque esperar un viaje de red para animar un toggle hace sentir rota la app, y equivocarse por un momento cuesta a lo sumo un aviso.
+
 ---
 
 ## [1.1.0] - 2026-10-31

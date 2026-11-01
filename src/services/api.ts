@@ -308,6 +308,24 @@ export const authApi = {
 
 // User API endpoints
 export const userApi = {
+  /** Whether this account wants to be told, on this phone, that a recap is ready. */
+  getRecapPushSettings: async (): Promise<{
+    weekly: boolean;
+    monthly: boolean;
+  }> => {
+    const response = await api.get('/users/me/recap-push');
+    return response.data;
+  },
+
+  /** Partial on purpose: flipping one switch must not reset the other. */
+  updateRecapPushSettings: async (settings: {
+    weekly?: boolean;
+    monthly?: boolean;
+  }): Promise<{ weekly: boolean; monthly: boolean }> => {
+    const response = await api.patch('/users/me/recap-push', settings);
+    return response.data;
+  },
+
   // Get current user
   getMe: async (accessToken: string) => {
     const response = await api.get('/users/me', {

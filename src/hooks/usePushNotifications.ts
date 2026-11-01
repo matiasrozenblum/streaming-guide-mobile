@@ -156,6 +156,10 @@ export function usePushNotifications() {
             // Handle notification tap from background
             messaging().onNotificationOpenedApp(remoteMessage => {
                 console.log('[Push] Notification caused app to open from background:', remoteMessage);
+                if (remoteMessage?.data?.type === 'recap') {
+                    navigate('MainTabs', { screen: 'Mi resumen' });
+                    return;
+                }
                 const url = remoteMessage?.data?.url;
                 if (url && typeof url === 'string') {
                     const domain = url.toLowerCase();
@@ -174,6 +178,15 @@ export function usePushNotifications() {
             messaging().getInitialNotification().then(remoteMessage => {
                 if (remoteMessage) {
                     console.log('[Push] Notification caused app to open from quit state:', remoteMessage);
+                    if (remoteMessage?.data?.type === 'recap') {
+                        // The navigator is not ready the instant the app comes
+                        // up from cold, which is why the streamer branch below
+                        // waits too.
+                        setTimeout(() => {
+                            navigate('MainTabs', { screen: 'Mi resumen' });
+                        }, 500);
+                        return;
+                    }
                     const url = remoteMessage?.data?.url;
                     if (url && typeof url === 'string') {
                         const domain = url.toLowerCase();

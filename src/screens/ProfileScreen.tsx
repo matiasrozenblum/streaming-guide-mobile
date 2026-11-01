@@ -6,6 +6,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
 import { navigate } from '../navigation/NavigationService';
+import { RecapNotificationSettings } from '../components/profile/RecapNotificationSettings';
 import dayjs from 'dayjs';
 
 type EditSection = 'none' | 'personal' | 'email' | 'password';
@@ -346,6 +347,9 @@ export const ProfileScreen = () => {
                         <Text variant="bodyLarge">{session.user.email}</Text>
                     </Card.Content>
                 </Card>
+
+                {/* Recap notification switches */}
+                <RecapNotificationSettings />
 
                 {/* Password Section */}
                 <Card style={styles.card}>
