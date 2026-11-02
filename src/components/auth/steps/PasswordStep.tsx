@@ -4,7 +4,8 @@ import { TextInput, Button, HelperText, ProgressBar, Text, useTheme } from 'reac
 
 interface PasswordStepProps {
     onSubmit: (password: string) => void;
-    onBack: () => void;
+    /** Kept for the callers; the header arrow is what goes back now. */
+    onBack?: () => void;
     isLoading: boolean;
     error?: string;
     submitLabel?: string;
@@ -12,7 +13,6 @@ interface PasswordStepProps {
 
 export const PasswordStep = ({
     onSubmit,
-    onBack,
     isLoading,
     error,
     submitLabel = 'Registrarme'
@@ -116,15 +116,6 @@ export const PasswordStep = ({
             </Text>
 
             <View style={styles.buttonContainer}>
-                <Button
-                    mode="outlined"
-                    onPress={onBack}
-                    disabled={isLoading}
-                    style={[styles.button, styles.flexButton]}
-                    icon="arrow-left"
-                >
-                    Volver
-                </Button>
                 <Button
                     mode="contained"
                     onPress={handleSubmit}

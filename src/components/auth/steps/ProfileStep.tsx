@@ -10,7 +10,8 @@ interface ProfileStepProps {
     initialBirthDate?: string;
     initialGender?: string;
     onSubmit: (first: string, last: string, birthDate: string, gender: string) => void;
-    onBack: () => void;
+    /** Kept for the callers; the header arrow is what goes back now. */
+    onBack?: () => void;
     isLoading?: boolean;
     error?: string;
 }
@@ -28,7 +29,6 @@ export const ProfileStep = ({
     initialBirthDate = '',
     initialGender = '',
     onSubmit,
-    onBack,
     isLoading,
     error
 }: ProfileStepProps) => {
@@ -209,15 +209,6 @@ export const ProfileStep = ({
             ) : null}
 
             <View style={styles.buttonContainer}>
-                <Button
-                    mode="outlined"
-                    onPress={onBack}
-                    disabled={isLoading}
-                    style={[styles.button, styles.flexButton]}
-                    icon="arrow-left"
-                >
-                    Volver
-                </Button>
                 <Button
                     mode="contained"
                     onPress={handleSubmit}

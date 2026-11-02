@@ -157,7 +157,14 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     setError('');
     const index = currentSteps.indexOf(step);
     if (index <= 0) return returnToEmail();
-    setStep(currentSteps[index - 1]);
+    /**
+     * Landing on the e-mail step means leaving the flow, not just moving the
+     * cursor: the e-mail field renders in the other phase, so setting the step
+     * alone left the panel with nothing in it.
+     */
+    const previous = currentSteps[index - 1];
+    if (previous === 'email') return returnToEmail();
+    setStep(previous);
   };
 
   const handleEmailSubmit = async (e: string) => {

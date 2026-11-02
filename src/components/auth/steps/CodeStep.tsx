@@ -13,14 +13,15 @@ interface CodeStepProps {
     onChangeEmail?: () => void;
     initialCode?: string;
     onSubmit: (code: string) => void;
-    onBack: () => void;
+    /** Kept for the callers; the header arrow is what goes back now. */
+    onBack?: () => void;
     isLoading: boolean;
     error?: string;
 }
 
 const OTP_LENGTH = 6;
 
-export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, onBack, isLoading, error }: CodeStepProps) => {
+export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isLoading, error }: CodeStepProps) => {
     const [digits, setDigits] = useState<string[]>(() => {
         const arr = initialCode.split('').slice(0, OTP_LENGTH);
         while (arr.length < OTP_LENGTH) arr.push('');
@@ -186,16 +187,6 @@ export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, onB
                 style={styles.button}
             >
                 Verificar
-            </Button>
-
-            <Button
-                mode="outlined"
-                onPress={onBack}
-                disabled={isLoading}
-                style={styles.backButton}
-                icon="arrow-left"
-            >
-                Volver
             </Button>
         </View>
     );

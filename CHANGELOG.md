@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **El alta sigue el diseño de la pantalla de registro**, tanto desde Mi resumen como desde cualquier otro lado: el stepper de círculos con íconos, etiquetas y conectores pasa a **cuatro barras y una línea** ("Paso 2 de 4 · Verificar"). El anterior pedía un ancho que 390px no da —las etiquetas se partían— y decía exactamente lo mismo. Las barras son decoración y la frase es la versión accesible, así que un lector de pantalla recibe una frase corta en lugar de cinco íconos.
+- **Se va el botón "Volver" de cada paso**: con la flecha en el encabezado había dos caminos de vuelta para lo mismo. Queda uno.
 - **Flecha de volver en el encabezado**, junto a la cruz: la cruz cierra todo, que no es lo que quiere alguien que se equivocó un paso atrás.
 - **"Cambiar correo" en el paso del código**, con lápiz, justo debajo de la dirección. Vuelve al paso del correo con la dirección todavía cargada.
 
@@ -51,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.0.20] - 2026-09-08
 
 ### Fixed
+- **La flecha de volver podía dejar el panel en blanco**: retrocedía al paso del correo sin salir de la fase del flujo, y el campo de correo sólo se renderiza en la otra. Volver al primer paso ahora cierra el flujo, que es lo que hacía el botón que reemplaza.
 - **La app de producción escuchaba los eventos en vivo de staging**: la URL del stream SSE (`/youtube/live-events`) estaba hardcodeada al backend de staging en todos los builds, producción incluida. Los cambios de estado en vivo del backend con el que la app realmente habla nunca le llegaban, así que la grilla solo se actualizaba cuando la pantalla recuperaba el foco de navegación. Ahora se deriva de `expoConfig.extra.apiUrl`, igual que el resto de las llamadas.
 - **El botón "Ver en Youtube" aparecía cortado como "Ver en" en algunos Android**: la app empaqueta Inter, pero un `<Text>` sin `fontFamily` cae en la fuente del sistema, y ese label estaba estilado solo con `fontWeight`. En un dispositivo con una fuente de sistema más ancha (un font pack de Samsung o MIUI) el texto superaba el espacio que el layout había medido, envolvía a una segunda línea y el `overflow: 'hidden'` del contenedor la recortaba. Se declara `fontFamily: 'Inter_700Bold'` y `numberOfLines={1}`.
 - **La app no recargaba al volver de segundo plano**: `loadData` corría únicamente desde `useFocusEffect`, que se dispara con el foco de *navegación* y no cuando se retoma la app. Una app dejada en segundo plano y abierta más tarde seguía renderizando el estado en memoria de la última vez que se usó — un usuario podía estar viendo la grilla de ayer, con el `is_live` congelado y el botón de "ver" apuntando a la playlist del canal en lugar del stream en vivo. Nada en pantalla lo delataba, porque la línea roja del "ahora" se calcula con el reloj real. Ahora un regreso a primer plano tras más de 2 minutos recarga los datos.
