@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { useTheme, Text } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from 'react-native-paper';
 
 // Step keys matching the web logic
 export type StepKey = 'email' | 'code' | 'profile' | 'password' | 'existing-user';
@@ -12,14 +11,6 @@ interface StepperProps {
     isLoading?: boolean;
 }
 
-const STEP_ICONS: Record<StepKey, string> = {
-    email: 'email-outline',
-    code: 'key-outline',
-    profile: 'account-outline',
-    password: 'lock-outline',
-    'existing-user': 'login',
-};
-
 const STEP_LABELS: Record<StepKey, string> = {
     email: 'Correo',
     code: 'Verificar',
@@ -28,113 +19,62 @@ const STEP_LABELS: Record<StepKey, string> = {
     'existing-user': 'Acceso',
 };
 
+/**
+ * Four bars and a line of text, in place of circles with icons, labels and
+ * connectors.
+ *
+ * That one needs width a 390px screen does not have — the labels wrapped and
+ * the circles crowded — and it says exactly what this says: where you are and
+ * how much is left. The bars are decoration; the sentence is the accessible
+ * version, so a screen reader gets one short phrase instead of five icons.
+ */
 export const Stepper = ({ currentStep, steps }: StepperProps) => {
     const theme = useTheme();
-    const activeIndex = steps.indexOf(currentStep);
+    const activeIndex = Math.max(0, steps.indexOf(currentStep));
 
     return (
         <View style={styles.container}>
-            {steps.map((step, index) => {
-                const isActive = index === activeIndex;
-                const isCompleted = index < activeIndex;
-                const isLast = index === steps.length - 1;
-                const isHighlighted = isActive || isCompleted;
-
-                return (
-                    <View key={step} style={styles.stepWrapper}>
-                        <View style={styles.iconContainer}>
-                            {!isLast && (
-                                <View
-                                    style={[
-                                        styles.connector,
-                                        {
-                                            backgroundColor: isCompleted
-                                                ? theme.colors.primary
-                                                : theme.colors.surfaceVariant,
-                                        },
-                                    ]}
-                                />
-                            )}
-                            <View
-                                style={[
-                                    styles.iconCircle,
-                                    {
-                                        backgroundColor: isHighlighted
-                                            ? theme.colors.primary
-                                            : 'transparent',
-                                        borderColor: isHighlighted
-                                            ? theme.colors.primary
-                                            : theme.colors.surfaceVariant,
-                                    },
-                                ]}
-                            >
-                                <Icon
-                                    name={STEP_ICONS[step]}
-                                    size={18}
-                                    color={isHighlighted ? '#FFFFFF' : theme.colors.onSurfaceDisabled ?? '#666'}
-                                />
-                            </View>
-                        </View>
-                        <Text
-                            variant="labelMedium"
-                            style={[
-                                styles.label,
-                                {
-                                    color: isHighlighted
-                                        ? theme.colors.primary
-                                        : theme.colors.onSurfaceDisabled ?? '#666',
-                                },
-                            ]}
-                            numberOfLines={1}
-                        >
-                            {STEP_LABELS[step]}
-                        </Text>
-                    </View>
-                );
-            })}
+            <View style={styles.bars} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                {steps.map((step, index) => (
+                    <View
+                        key={step}
+                        style={[
+                            styles.bar,
+                            {
+                                backgroundColor:
+                                    index <= activeIndex ? theme.colors.primary : '#1E293B',
+                            },
+                        ]}
+                    />
+                ))}
+            </View>
+            <Text style={styles.label} accessibilityRole="text">
+                Paso {activeIndex + 1} de {steps.length} ·{' '}
+                {STEP_LABELS[steps[activeIndex] ?? steps[0]]}
+            </Text>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
+        gap: 8,
+        paddingHorizontal: 4,
+        paddingBottom: 4,
+    },
+    bars: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        marginBottom: 20,
-        paddingHorizontal: 16,
+        gap: 6,
     },
-    stepWrapper: {
+    bar: {
         flex: 1,
-        alignItems: 'center',
-    },
-    iconContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        height: 36, // Match iconCircle height
-        marginBottom: 4,
-    },
-    iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        borderWidth: 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2, // Ensure icon stays on top of connector
-        backgroundColor: 'transparent', // Will be overridden dynamically
-    },
-    connector: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: '100%', // Spans from center of current to center of next (approx)
-        height: 2, // Thinner line
-        marginTop: -1, // Center vertically
-        zIndex: 1,
+        height: 4,
+        borderRadius: 2,
     },
     label: {
-        textAlign: 'center',
+        fontFamily: 'Inter_400Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        color: '#94A3B8',
     },
 });

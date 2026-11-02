@@ -141,6 +141,25 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, entry]);
 
+  /**
+   * Back to the e-mail step with the address still in hand — what "Cambiar
+   * correo" means, and where the header arrow goes from the first step.
+   */
+  const returnToEmail = () => {
+    setError('');
+    setCode('');
+    setStep('email');
+    setPhase('email');
+  };
+
+  /** One step back, along the same path each step's own button takes. */
+  const goBack = () => {
+    setError('');
+    const index = currentSteps.indexOf(step);
+    if (index <= 0) return returnToEmail();
+    setStep(currentSteps[index - 1]);
+  };
+
   const handleEmailSubmit = async (e: string) => {
     setEmail(e);
     setLoading(true);
@@ -436,6 +455,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
             email={email}
             initialCode={code}
             onSubmit={handleCodeSubmit}
+            onChangeEmail={returnToEmail}
             onBack={() => {
               if (phase === 'flow' && !isUserExisting) {
                 setStep('email');
@@ -505,6 +525,17 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
         ]}
       >
         <View style={styles.header}>
+          {/* A way back that is not the way out: the cross closes the whole
+              thing, which is not what somebody who mistyped their e-mail
+              wants. Only once there is a step to go back to. */}
+          {phase === 'flow' && (
+            <IconButton
+              icon="arrow-left"
+              onPress={goBack}
+              accessibilityLabel="Volver"
+              style={styles.backButton}
+            />
+          )}
           <Text variant="titleLarge" style={styles.title}>{getTitle()}</Text>
           <IconButton icon="close" onPress={handleClose} style={styles.closeButton} />
         </View>
@@ -559,6 +590,10 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: 'bold',
     flex: 1,
+  },
+  backButton: {
+    margin: 0,
+    marginLeft: -8,
   },
   closeButton: {
     margin: 0,

@@ -5,6 +5,12 @@ import { authApi } from '../../../services/api';
 
 interface CodeStepProps {
     email: string;
+    /**
+     * Going back to fix a typo in the address. Offered right under it: that is
+     * where somebody is looking when they notice it, and a way out at the
+     * other end of the screen is not an answer.
+     */
+    onChangeEmail?: () => void;
     initialCode?: string;
     onSubmit: (code: string) => void;
     onBack: () => void;
@@ -14,7 +20,7 @@ interface CodeStepProps {
 
 const OTP_LENGTH = 6;
 
-export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading, error }: CodeStepProps) => {
+export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, onBack, isLoading, error }: CodeStepProps) => {
     const [digits, setDigits] = useState<string[]>(() => {
         const arr = initialCode.split('').slice(0, OTP_LENGTH);
         while (arr.length < OTP_LENGTH) arr.push('');
@@ -117,6 +123,21 @@ export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading,
                 <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{email}</Text>
             </Text>
 
+            {onChangeEmail && (
+                <Button
+                    mode="text"
+                    icon="pencil-outline"
+                    compact
+                    onPress={onChangeEmail}
+                    disabled={isLoading}
+                    textColor="#60A5FA"
+                    style={styles.changeEmail}
+                    labelStyle={styles.changeEmailLabel}
+                >
+                    Cambiar correo
+                </Button>
+            )}
+
             <View style={styles.otpContainer}>
                 {digits.map((digit, index) => (
                     <RNTextInput
@@ -181,6 +202,14 @@ export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading,
 };
 
 const styles = StyleSheet.create({
+    changeEmail: {
+        alignSelf: 'center',
+        marginTop: -8,
+    },
+    changeEmailLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
     container: {
         gap: 16,
     },

@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **El alta sigue el diseño de la pantalla de registro**, tanto desde Mi resumen como desde cualquier otro lado: el stepper de círculos con íconos, etiquetas y conectores pasa a **cuatro barras y una línea** ("Paso 2 de 4 · Verificar"). El anterior pedía un ancho que 390px no da —las etiquetas se partían— y decía exactamente lo mismo. Las barras son decoración y la frase es la versión accesible, así que un lector de pantalla recibe una frase corta en lugar de cinco íconos.
+- **Flecha de volver en el encabezado**, junto a la cruz: la cruz cierra todo, que no es lo que quiere alguien que se equivocó un paso atrás.
+- **"Cambiar correo" en el paso del código**, con lápiz, justo debajo de la dirección. Vuelve al paso del correo con la dirección todavía cargada.
 
 - **La pantalla sin sesión sigue el artboard "App · Sin sesión"**: el argumento ocupa la pantalla —título, dos placas en abanico y el cartel que contesta por qué pedimos una cuenta— y el formulario es un panel apoyado en el borde de abajo. El panel renderiza el `EmailStep` de verdad y no una copia: el correo que se escribe ahí se le entrega al flujo de alta que ya existe, que sigue siendo el único.
 - **Al avanzar del correo, el alta se abre como un panel desde el mismo borde**, con las mismas esquinas, para que se lea como ese panel creciendo en lugar de una tarjeta apareciendo encima. Es una variante del modal de siempre: donde se abre desde la grilla o streamers no cambia nada.
