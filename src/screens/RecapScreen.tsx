@@ -323,7 +323,9 @@ export const RecapScreen = () => {
         >
             <Header />
 
-            <View style={styles.titleRow}>
+            {/* A visitor gets the pitch, not a section header for a recap
+                they do not have yet. */}
+            {session && <View style={styles.titleRow}>
                 <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Mi resumen</Text>
                 {/* Nothing to switch between without a recap behind it. */}
                 {session && (
@@ -334,7 +336,7 @@ export const RecapScreen = () => {
                         {rangeLabel(recap)}
                     </Text>
                 )}
-            </View>
+            </View>}
 
             <View
                 style={styles.body}

@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **La pantalla sin sesión sigue el artboard "App · Sin sesión"**: el argumento ocupa la pantalla —título, dos placas en abanico y el cartel que contesta por qué pedimos una cuenta— y el formulario es un panel apoyado en el borde de abajo. El panel renderiza el `EmailStep` de verdad y no una copia: el correo que se escribe ahí se le entrega al flujo de alta que ya existe, que sigue siendo el único.
+- **Al avanzar del correo, el alta se abre como un panel desde el mismo borde**, con las mismas esquinas, para que se lea como ese panel creciendo en lugar de una tarjeta apareciendo encima. Es una variante del modal de siempre: donde se abre desde la grilla o streamers no cambia nada.
+- **El modal recibe por dónde se entró** (`initialEmail`, `social`), así que a nadie se le pide dos veces el mismo correo.
+
+### Changed
+
+- **Google y Apple van uno al lado del otro**, con el nombre del proveedor solo. Dos filas enteras cuestan unos 54px de alto que ni la pantalla sin sesión ni el modal en un teléfono chico tienen de sobra, y el logo carga el resto del significado. En Android, donde sólo se ofrece Google, el botón simplemente ocupa la fila.
+
+### Added
+
 - **La pestaña de Mi resumen está siempre**, con sesión o sin ella. Antes se escondía a quien no tenía cuenta, que es justo quien no vio nunca el motivo más fuerte para abrirse una. Un visitante ahora encuentra el abanico de placas, qué es la sección y un botón que lo lleva al alta. La entrada a la cuenta sigue siendo el modal que la app ya tiene: a diferencia del sitio, que pone el formulario como mitad de la pantalla, en un teléfono no hay dos mitades que repartir.
 
 ---

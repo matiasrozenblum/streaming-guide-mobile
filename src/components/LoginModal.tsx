@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Modal, Portal, Text, IconButton, useTheme } from 'react-native-paper';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -29,7 +29,7 @@ const ALL_STEPS: Record<'new' | 'existing', StepKey[]> = {
 
 export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const { login } = useAuth();
-  const { pendingAction, clearPendingAction } = useLoginModal();
+  const { pendingAction, clearPendingAction, entry } = useLoginModal();
   const theme = useTheme();
 
   // State
@@ -110,6 +110,36 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   };
 
   // --- Handlers ---
+
+  /**
+   * A screen that already has an e-mail field hands it over here, so the
+   * reader is not asked for the same thing twice. Guarded by a ref: the
+   * effect must fire once per opening and not on every re-render of a flow
+   * that is already under way.
+   */
+  const handedOver = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      handedOver.current = false;
+      return;
+    }
+    if (handedOver.current) return;
+
+    if (entry.initialEmail) {
+      handedOver.current = true;
+      setEmail(entry.initialEmail);
+      void handleEmailSubmit(entry.initialEmail);
+    } else if (entry.social === 'google') {
+      handedOver.current = true;
+      void handleGoogleLogin();
+    } else if (entry.social === 'apple') {
+      handedOver.current = true;
+      void handleAppleLogin();
+    }
+    // The handlers are recreated on every render; the ref is what keeps this
+    // from running twice, so they are deliberately not dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, entry]);
 
   const handleEmailSubmit = async (e: string) => {
     setEmail(e);
@@ -469,7 +499,10 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       <Modal
         visible={visible}
         onDismiss={handleClose}
-        contentContainerStyle={[styles.modal, { backgroundColor: '#0F172A' }]}
+        contentContainerStyle={[
+          entry.panel ? styles.panel : styles.modal,
+          { backgroundColor: entry.panel ? '#141C30' : '#0F172A' },
+        ]}
       >
         <View style={styles.header}>
           <Text variant="titleLarge" style={styles.title}>{getTitle()}</Text>
@@ -499,6 +532,21 @@ const styles = StyleSheet.create({
     marginVertical: 40,
     borderRadius: 12,
     maxHeight: '90%',
+  },
+  /**
+   * For a screen whose own panel is what opened this: hinged to the bottom
+   * edge, full height, same corners. It reads as that panel growing rather
+   * than as a card appearing over it.
+   */
+  panel: {
+    marginTop: 60,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
   },
   header: {
     flexDirection: 'row',

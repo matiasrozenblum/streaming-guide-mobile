@@ -102,7 +102,7 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
                         style={styles.socialButton}
                         textColor={theme.colors.onSurface}
                     >
-                        Conectate con Apple
+                        Apple
                     </Button>
                 )}
                 <Button
@@ -112,7 +112,7 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
                     style={styles.socialButton}
                     textColor={theme.colors.onSurface}
                 >
-                    Conectate con Google
+                    Google
                 </Button>
             </View>
         </View >
@@ -157,10 +157,18 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         fontWeight: '600',
     },
+    /**
+     * Side by side, and with the provider's name alone: two full rows cost
+     * ~54px of height that neither the signed-out screen nor the modal on a
+     * small phone has to spare, and the logo carries the rest of the meaning.
+     * On Android only Google is offered, and it simply fills the row.
+     */
     socialContainer: {
-        gap: 12,
+        flexDirection: 'row',
+        gap: 10,
     },
     socialButton: {
+        flex: 1,
         borderRadius: 6,
         borderColor: 'rgba(241,245,249,1)',
     },
