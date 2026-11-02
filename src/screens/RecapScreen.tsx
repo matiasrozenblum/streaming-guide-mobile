@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Header } from '../components/Header';
 import { EmptyRecap } from '../components/recap/EmptyRecap';
+import { RecapSignedOut } from '../components/recap/RecapSignedOut';
 import { PeriodSwitch } from '../components/recap/PeriodSwitch';
 import { PLACA_RATIO, PlacaCarousel, Slide } from '../components/recap/PlacaCarousel';
 import { ShareRow } from '../components/recap/ShareRow';
@@ -220,6 +221,11 @@ export const RecapScreen = () => {
     );
 
     const body = () => {
+        // A visitor has no recap to load: the pitch is the screen.
+        if (!session) {
+            return <RecapSignedOut />;
+        }
+
         if (loading) {
             return (
                 <View style={styles.centered}>
@@ -319,7 +325,10 @@ export const RecapScreen = () => {
 
             <View style={styles.titleRow}>
                 <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Mi resumen</Text>
-                <PeriodSwitch value={period} onChange={setPeriod} disabled={loading} />
+                {/* Nothing to switch between without a recap behind it. */}
+                {session && (
+                    <PeriodSwitch value={period} onChange={setPeriod} disabled={loading} />
+                )}
                 {recap && (
                     <Text style={[styles.range, { color: theme.colors.textSecondary }]}>
                         {rangeLabel(recap)}

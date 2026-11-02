@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **La pestaña de Mi resumen está siempre**, con sesión o sin ella. Antes se escondía a quien no tenía cuenta, que es justo quien no vio nunca el motivo más fuerte para abrirse una. Un visitante ahora encuentra el abanico de placas, qué es la sección y un botón que lo lleva al alta. La entrada a la cuenta sigue siendo el modal que la app ya tiene: a diferencia del sitio, que pone el formulario como mitad de la pantalla, en un teléfono no hay dos mitades que repartir.
+
 ---
 
 ## [1.1.0] - 2026-10-31
