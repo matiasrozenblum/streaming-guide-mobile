@@ -120,15 +120,21 @@ export const EmailStep = ({ initialEmail = '', onSubmit, onAppleLogin, onGoogleL
 };
 
 const styles = StyleSheet.create({
+    /**
+     * The artboard's rhythm, not a looser one: 10 between every row, with no
+     * extra margins bolted onto the button or the divider. The 50-odd pixels
+     * that buys go to the fan above, which is the part of this screen anybody
+     * actually looks at.
+     */
     container: {
-        gap: 16,
+        gap: 10,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: 4,
         paddingHorizontal: 12,
-        height: 56,
+        height: 48,
     },
     inputIcon: {
         marginRight: 10,
@@ -139,7 +145,6 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     button: {
-        marginTop: 8,
         borderRadius: 6,
     },
     buttonContent: {
@@ -148,7 +153,6 @@ const styles = StyleSheet.create({
     dividerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: 8,
     },
     divider: {
         flex: 1,
