@@ -21,6 +21,20 @@ import { getTheme } from '../../theme';
  */
 const DESIGN = 390;
 const FAN_HEIGHT = 176;
+/**
+ * Where the lowest placa actually ends, rotation included: the left one turns
+ * about its centre, so its corner reaches 248, and the upright one reaches its
+ * full 267. Past this the stage would be growing empty background, so it is
+ * where the fan stops taking room it is offered.
+ */
+const FAN_FULL = 268;
+/**
+ * The artboard is 390 wide and the fan was pinned to that, so on a wider phone
+ * it stayed 390 and sat in the middle of unused width. It scales with the
+ * screen now, up to a point: past a large phone the placas would be the whole
+ * screen and the argument above them an afterthought.
+ */
+const MAX_FAN_WIDTH = 480;
 
 const PLACAS = [
     {
@@ -61,7 +75,7 @@ export const RecapSignedOut = () => {
     const { show: showLogin } = useLoginModal();
     const { width } = useWindowDimensions();
 
-    const scale = Math.min(width, DESIGN) / DESIGN;
+    const scale = Math.min(width, MAX_FAN_WIDTH) / DESIGN;
     const u = (n: number) => n * scale;
 
     return (
@@ -76,7 +90,10 @@ export const RecapSignedOut = () => {
                 </Text>
 
                 <View
-                    style={[styles.fan, { width: u(DESIGN), height: u(FAN_HEIGHT) }]}
+                    style={[
+                        styles.fan,
+                        { width: u(DESIGN), height: u(FAN_HEIGHT), maxHeight: u(FAN_FULL) },
+                    ]}
                     pointerEvents="none"
                 >
                     {PLACAS.map((placa, index) => (
@@ -165,11 +182,16 @@ const styles = StyleSheet.create({
         marginTop: 14,
         overflow: 'hidden',
         /**
-         * What gives on a screen shorter than the artboard. The fan is a
-         * cropped stage already, so losing more of it costs nothing; the
-         * paragraph under it is text, and half a sentence looks broken.
+         * The fan is what the leftover height goes to, in both directions. It
+         * is a cropped stage, so shrinking only crops a little more — and the
+         * paragraph under it is text, where half a sentence looks broken. The
+         * other way matters where the panel is short: Android offers one
+         * social button against the two on iOS, and without this the 50-odd
+         * pixels that buys pile up as a hole between the card and the panel
+         * instead of showing more of the placas.
          */
         flexShrink: 1,
+        flexGrow: 1,
     },
     placaImage: {
         width: '100%',
