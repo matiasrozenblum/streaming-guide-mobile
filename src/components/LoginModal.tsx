@@ -36,6 +36,12 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const [step, setStep] = useState<StepKey>('email');
   const [isUserExisting, setIsUserExisting] = useState(false);
   const [phase, setPhase] = useState<'email' | 'flow'>('email');
+  /**
+   * The last step is done when the password is accepted, not when it is shown.
+   * Without this the bar would be full while the form is still empty, and the
+   * one moment the sign-up is actually finished would have nothing to show.
+   */
+  const [flowComplete, setFlowComplete] = useState(false);
   const [authOrigin, setAuthOrigin] = useState<'traditional' | 'apple' | 'google'>('traditional');
 
   // Data
@@ -73,6 +79,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     setGender('');
     setError('');
     setLoading(false);
+    setFlowComplete(false);
     clearPendingAction();
   };
 
@@ -96,7 +103,11 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   // --- Auth success helper ---
   // Called after every successful login/register. Executes any pending action
   // (e.g. subscribe to a program) that was queued before the user authenticated.
-  const handleAuthSuccess = async (accessToken: string, refreshToken: string) => {
+  const handleAuthSuccess = async (
+    accessToken: string,
+    refreshToken: string,
+    holdFor?: Promise<unknown>,
+  ) => {
     await login(accessToken, refreshToken);
     if (pendingAction) {
       try {
@@ -106,6 +117,9 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       }
       clearPendingAction();
     }
+    // Runs alongside the work above rather than after it, so whatever the
+    // caller wants seen gets its moment without anybody waiting twice.
+    if (holdFor) await holdFor;
     handleClose();
   };
 
@@ -406,8 +420,16 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       });
 
       trackEvent('signup_success', { method: 'traditional' });
-      await handleAuthSuccess(response.access_token, response.refresh_token);
+      // Here is where the sign-up is finished, which is the one place the bar
+      // has to reach the end.
+      setFlowComplete(true);
+      await handleAuthSuccess(
+        response.access_token,
+        response.refresh_token,
+        new Promise((r) => setTimeout(r, 420)),
+      );
     } catch (err: any) {
+      setFlowComplete(false);
       setError('Error al registrarse.');
       trackEvent('signup_error', { error: err.message || 'unknown', method: 'traditional' });
     } finally {
@@ -547,8 +569,13 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
           <IconButton icon="close" onPress={handleClose} style={styles.closeButton} />
         </View>
 
-        {phase === 'flow' && (
-          <Stepper currentStep={step} steps={currentSteps} isLoading={loading} />
+        {phase === 'flow' && !isUserExisting && (
+          <Stepper
+            currentStep={step}
+            steps={currentSteps}
+            complete={flowComplete}
+            isLoading={loading}
+          />
         )}
 
         <KeyboardAvoidingView

@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
-- **El alta sigue el diseño de la pantalla de registro**, tanto desde Mi resumen como desde cualquier otro lado: el stepper de círculos con íconos, etiquetas y conectores pasa a **cuatro barras y una línea** ("Paso 2 de 4 · Verificar"). El anterior pedía un ancho que 390px no da —las etiquetas se partían— y decía exactamente lo mismo. Las barras son decoración y la frase es la versión accesible, así que un lector de pantalla recibe una frase corta en lugar de cinco íconos.
+- **El alta sigue el diseño de la pantalla de registro**, tanto desde Mi resumen como desde cualquier otro lado: el stepper de círculos con íconos, etiquetas y conectores pasa a **una sola barra que se llena**. El anterior pedía un ancho que 390px no da —las etiquetas se partían—. No lleva leyenda: "Paso 2 de 4 · Verificar" no se lee como ayuda sino como trámite, y encima repetía lo que ya dice el encabezado que tiene justo arriba. Lo único que agregaba —cuánto falta— es exactamente lo que muestra la barra, y el dato sigue estando para quien no la ve, anunciado como `progressbar`. La barra mide los pasos que quedaron atrás y no el que tenés delante, así que el último cuarto lo cierra el registro aceptado y no el formulario abierto; si falla, vuelve atrás junto con el error. Aparece **solo en el alta**: quien ya tiene cuenta escribe una dirección y una contraseña, y ahí no hay recorrido que contar.
 - **Se va el botón "Volver" de cada paso**: con la flecha en el encabezado había dos caminos de vuelta para lo mismo. Queda uno.
 - **Flecha de volver en el encabezado**, junto a la cruz: la cruz cierra todo, que no es lo que quiere alguien que se equivocó un paso atrás.
 - **"Cambiar correo" en el paso del código**, con lápiz, justo debajo de la dirección. Vuelve al paso del correo con la dirección todavía cargada.
@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **La pantalla sin sesión sigue el artboard "App · Sin sesión"**: el argumento ocupa la pantalla —título, dos placas en abanico y el cartel que contesta por qué pedimos una cuenta— y el formulario es un panel apoyado en el borde de abajo. El panel renderiza el `EmailStep` de verdad y no una copia: el correo que se escribe ahí se le entrega al flujo de alta que ya existe, que sigue siendo el único.
 - **Al avanzar del correo, el alta se abre como un panel desde el mismo borde**, con las mismas esquinas, para que se lea como ese panel creciendo en lugar de una tarjeta apareciendo encima. Es una variante del modal de siempre: donde se abre desde la grilla o streamers no cambia nada.
 - **El modal recibe por dónde se entró** (`initialEmail`, `social`), así que a nadie se le pide dos veces el mismo correo.
+- **El panel del formulario queda despegado del cartel**, como en el artboard, y en una pantalla más corta que el diseño lo que cede es el abanico y no el texto: el abanico ya es un recorte a propósito y perder un poco más no cuesta nada, media frase cortada se ve rota.
 
 ### Changed
 

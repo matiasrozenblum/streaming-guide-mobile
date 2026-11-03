@@ -164,6 +164,12 @@ const styles = StyleSheet.create({
     fan: {
         marginTop: 14,
         overflow: 'hidden',
+        /**
+         * What gives on a screen shorter than the artboard. The fan is a
+         * cropped stage already, so losing more of it costs nothing; the
+         * paragraph under it is text, and half a sentence looks broken.
+         */
+        flexShrink: 1,
     },
     placaImage: {
         width: '100%',
@@ -194,6 +200,8 @@ const styles = StyleSheet.create({
         color: '#F1F5F9',
     },
     panel: {
+        // The artboard leaves the panel detached from the card above it.
+        marginTop: 16,
         backgroundColor: '#141C30',
         borderTopWidth: 1,
         borderTopColor: '#334155',

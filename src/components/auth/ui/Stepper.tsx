@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 // Step keys matching the web logic
@@ -8,6 +8,8 @@ export type StepKey = 'email' | 'code' | 'profile' | 'password' | 'existing-user
 interface StepperProps {
     currentStep: StepKey;
     steps: StepKey[];
+    /** The sign-up finished: the last quarter belongs to the password being accepted. */
+    complete?: boolean;
     isLoading?: boolean;
 }
 
@@ -20,61 +22,83 @@ const STEP_LABELS: Record<StepKey, string> = {
 };
 
 /**
- * Four bars and a line of text, in place of circles with icons, labels and
- * connectors.
+ * One bar that fills, in place of circles with icons, labels and connectors.
  *
- * That one needs width a 390px screen does not have — the labels wrapped and
- * the circles crowded — and it says exactly what this says: where you are and
- * how much is left. The bars are decoration; the sentence is the accessible
- * version, so a screen reader gets one short phrase instead of five icons.
+ * That one needed width a 390px screen does not have — the labels wrapped and
+ * the circles crowded. The line of text that replaced them ("Paso 2 de 4 ·
+ * Verificar") went too: nobody reads it as anything but paperwork, and the
+ * header right above it already says which step this is. What the bar adds is
+ * the part the header cannot show, which is how much is left. The count is
+ * announced rather than drawn, so a screen reader still gets the sentence.
+ *
+ * It measures the steps behind you, not the one you are standing on: the
+ * password screen is three quarters of the way, and `complete` closes it —
+ * the sign-up is finished when the password is accepted, not when the form
+ * is shown.
  */
-export const Stepper = ({ currentStep, steps }: StepperProps) => {
+export const Stepper = ({ currentStep, steps, complete = false }: StepperProps) => {
     const theme = useTheme();
     const activeIndex = Math.max(0, steps.indexOf(currentStep));
+    const done = complete ? steps.length : activeIndex;
+    const value = steps.length ? done / steps.length : 0;
+
+    const progress = useRef(new Animated.Value(value)).current;
+    useEffect(() => {
+        Animated.timing(progress, {
+            toValue: value,
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+            // Width is a layout property; the native driver cannot carry it.
+            useNativeDriver: false,
+        }).start();
+    }, [value, progress]);
 
     return (
-        <View style={styles.container}>
-            <View style={styles.bars} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                {steps.map((step, index) => (
-                    <View
-                        key={step}
-                        style={[
-                            styles.bar,
-                            {
-                                backgroundColor:
-                                    index <= activeIndex ? theme.colors.primary : '#1E293B',
-                            },
-                        ]}
-                    />
-                ))}
+        <View
+            style={styles.container}
+            accessibilityRole="progressbar"
+            accessibilityValue={{
+                min: 0,
+                max: steps.length,
+                now: done,
+                text: complete
+                    ? 'Listo'
+                    : `Paso ${activeIndex + 1} de ${steps.length}: ${
+                          STEP_LABELS[steps[activeIndex] ?? steps[0]]
+                      }`,
+            }}
+        >
+            <View style={styles.track}>
+                <Animated.View
+                    style={[
+                        styles.fill,
+                        {
+                            backgroundColor: theme.colors.primary,
+                            width: progress.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: ['0%', '100%'],
+                            }),
+                        },
+                    ]}
+                />
             </View>
-            <Text style={styles.label} accessibilityRole="text">
-                Paso {activeIndex + 1} de {steps.length} ·{' '}
-                {STEP_LABELS[steps[activeIndex] ?? steps[0]]}
-            </Text>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        gap: 8,
         paddingHorizontal: 4,
         paddingBottom: 4,
     },
-    bars: {
-        flexDirection: 'row',
-        gap: 6,
-    },
-    bar: {
-        flex: 1,
+    track: {
         height: 4,
         borderRadius: 2,
+        backgroundColor: '#1E293B',
+        overflow: 'hidden',
     },
-    label: {
-        fontFamily: 'Inter_400Regular',
-        fontSize: 12,
-        lineHeight: 16,
-        color: '#94A3B8',
+    fill: {
+        height: '100%',
+        borderRadius: 2,
     },
 });
