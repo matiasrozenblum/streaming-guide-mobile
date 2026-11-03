@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { useTheme } from 'react-native-paper';
 
 // Step keys matching the web logic
@@ -11,6 +11,8 @@ interface StepperProps {
     /** The sign-up finished: the last quarter belongs to the password being accepted. */
     complete?: boolean;
     isLoading?: boolean;
+    /** The host decides the inset, so the bar lines up with what it measures. */
+    style?: StyleProp<ViewStyle>;
 }
 
 const STEP_LABELS: Record<StepKey, string> = {
@@ -36,7 +38,7 @@ const STEP_LABELS: Record<StepKey, string> = {
  * the sign-up is finished when the password is accepted, not when the form
  * is shown.
  */
-export const Stepper = ({ currentStep, steps, complete = false }: StepperProps) => {
+export const Stepper = ({ currentStep, steps, complete = false, style }: StepperProps) => {
     const theme = useTheme();
     const activeIndex = Math.max(0, steps.indexOf(currentStep));
     const done = complete ? steps.length : activeIndex;
@@ -55,7 +57,7 @@ export const Stepper = ({ currentStep, steps, complete = false }: StepperProps) 
 
     return (
         <View
-            style={styles.container}
+            style={[styles.container, style]}
             accessibilityRole="progressbar"
             accessibilityValue={{
                 min: 0,
@@ -88,7 +90,6 @@ export const Stepper = ({ currentStep, steps, complete = false }: StepperProps) 
 
 const styles = StyleSheet.create({
     container: {
-        paddingHorizontal: 4,
         paddingBottom: 4,
     },
     track: {

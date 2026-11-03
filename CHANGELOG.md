@@ -19,6 +19,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **El modal recibe por dónde se entró** (`initialEmail`, `social`), así que a nadie se le pide dos veces el mismo correo.
 - **El panel del formulario queda despegado del cartel**, como en el artboard, y en una pantalla más corta que el diseño lo que cede es el abanico y no el texto: el abanico ya es un recorte a propósito y perder un poco más no cuesta nada, media frase cortada se ve rota.
 
+### Fixed
+
+- **El paso del código se veía flotando en medio de un panel vacío**: ni el `KeyboardAvoidingView` ni el `ScrollView` reclamaban el alto, así que un paso que apoya su botón en el borde de abajo no encontraba borde donde apoyarlo y el formulario entero quedaba centrado, con cientos de pixeles vacíos arriba y abajo. Ahora el contenido arranca arriba y el botón vive en el borde inferior, con el reenvío debajo, como en el artboard.
+- **La frase "Ingresá el código que recibiste en" salía verde**: usaba `theme.colors.secondary`, que en este tema es el verde de marca (`#10B981`) y no el gris de texto secundario. Pasa a `onSurfaceVariant`.
+- **La barra de progreso iba al ancho del panel y no del contenido**: su inset ahora lo decide quien la monta, así que se alinea con lo que mide.
+
 ### Changed
 
 - **Google y Apple van uno al lado del otro**, con el nombre del proveedor solo. Dos filas enteras cuestan unos 54px de alto que ni la pantalla sin sesión ni el modal en un teléfono chico tienen de sobra, y el logo carga el resto del significado. En Android, donde sólo se ofrece Google, el botón simplemente ocupa la fila.

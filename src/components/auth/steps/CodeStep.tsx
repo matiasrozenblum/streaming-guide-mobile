@@ -119,7 +119,7 @@ export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isL
 
     return (
         <View style={styles.container}>
-            <Text style={[styles.subtitle, { color: theme.colors.secondary }]}>
+            <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
                 Ingresá el código que recibiste en{' '}
                 <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{email}</Text>
             </Text>
@@ -171,13 +171,10 @@ export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isL
                 </HelperText>
             ) : null}
 
-            <View style={styles.resendContainer}>
-                <TouchableOpacity onPress={canResend ? handleResend : undefined} disabled={!canResend}>
-                    <Text style={{ color: canResend ? theme.colors.primary : theme.colors.onSurfaceDisabled ?? theme.colors.outline }}>
-                        {canResend ? 'Reenviar código' : `Reenviar en ${countdown}s`}
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            {/* The artboard puts the button on the bottom edge, not under the
+                last field: everything above is reading, and the one thing to
+                do is where the thumb already is. */}
+            <View style={styles.spacer} />
 
             <Button
                 mode="contained"
@@ -188,13 +185,22 @@ export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isL
             >
                 Verificar
             </Button>
+
+            <View style={styles.resendContainer}>
+                <TouchableOpacity onPress={canResend ? handleResend : undefined} disabled={!canResend}>
+                    <Text style={{ color: canResend ? theme.colors.primary : theme.colors.onSurfaceDisabled ?? theme.colors.outline }}>
+                        {canResend ? 'Reenviar código' : `Reenviar código en ${countdown}s`}
+                    </Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     changeEmail: {
-        alignSelf: 'center',
+        alignSelf: 'flex-start',
+        marginLeft: -8,
         marginTop: -8,
     },
     changeEmailLabel: {
@@ -202,15 +208,17 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     container: {
+        flex: 1,
         gap: 16,
     },
+    spacer: {
+        flex: 1,
+    },
     subtitle: {
-        textAlign: 'center',
         marginBottom: 8,
     },
     otpContainer: {
         flexDirection: 'row',
-        justifyContent: 'center',
         gap: 10,
     },
     otpBox: {
@@ -224,7 +232,7 @@ const styles = StyleSheet.create({
     },
     resendContainer: {
         alignItems: 'center',
-        marginBottom: 8,
+        marginTop: -8,
     },
     button: {
         borderRadius: 6,

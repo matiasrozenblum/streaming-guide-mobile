@@ -571,6 +571,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
 
         {phase === 'flow' && !isUserExisting && (
           <Stepper
+            style={styles.stepper}
             currentStep={step}
             steps={currentSteps}
             complete={flowComplete}
@@ -578,11 +579,19 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
           />
         )}
 
+        {/* Both have to claim the height, or a step that anchors its button
+            to the bottom edge finds no bottom to anchor to and the whole form
+            floats in the middle of an empty panel. */}
         <KeyboardAvoidingView
+          style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust based on header height
         >
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
             {renderContent()}
           </ScrollView>
         </KeyboardAvoidingView>
@@ -632,7 +641,14 @@ const styles = StyleSheet.create({
   closeButton: {
     margin: 0,
   },
+  flex: {
+    flex: 1,
+  },
+  stepper: {
+    paddingHorizontal: 24,
+  },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
