@@ -1,6 +1,9 @@
 import React from 'react';
 import {
     Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
     StyleSheet,
     Text,
     useWindowDimensions,
@@ -73,14 +76,50 @@ const PLACAS = [
 export const RecapSignedOut = () => {
     const theme = getTheme('dark');
     const { show: showLogin } = useLoginModal();
+
+    /**
+     * While the keyboard is up the argument stands down. Shrinking only the
+     * fan is not enough — the title, the copy and the card are some 190px that
+     * do not give — and what is left over the keyboard has to hold the whole
+     * form, button included. It is the same move the website makes when the
+     * form takes over the screen.
+     */
+    const [keyboardUp, setKeyboardUp] = React.useState(false);
+    React.useEffect(() => {
+        const show = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            () => setKeyboardUp(true),
+        );
+        const hide = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => setKeyboardUp(false),
+        );
+        return () => {
+            show.remove();
+            hide.remove();
+        };
+    }, []);
     const { width } = useWindowDimensions();
 
     const scale = Math.min(width, MAX_FAN_WIDTH) / DESIGN;
     const u = (n: number) => n * scale;
 
     return (
-        <View style={styles.root}>
-            <View style={styles.pitch}>
+        /**
+         * The panel is hinged to the bottom edge, which is exactly where the
+         * keyboard comes up, so without this the field somebody just tapped is
+         * the first thing to disappear. Android asks for `adjustResize` in the
+         * manifest, but the app draws edge to edge and that stops the window
+         * from resizing, so both platforms need this and not just iOS.
+         *
+         * What gives is the pitch: it is `flex: 1` and clips, so the fan loses
+         * height while the panel keeps all of its own.
+         */
+        <KeyboardAvoidingView
+            style={styles.root}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+            <View style={[styles.pitch, keyboardUp && styles.pitchHidden]}>
                 <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
                     Tu resumen, en placas para compartir
                 </Text>
@@ -129,7 +168,7 @@ export const RecapSignedOut = () => {
                 </View>
             </View>
 
-            <View style={styles.panel}>
+            <View style={[styles.panel, keyboardUp && styles.panelExpanded]}>
                 <Text style={[styles.panelTitle, { color: theme.colors.textPrimary }]}>
                     ¡Bienvenid@ a La Guía!
                 </Text>
@@ -140,7 +179,7 @@ export const RecapSignedOut = () => {
                     onAppleLogin={() => showLogin(undefined, { social: 'apple', panel: true })}
                 />
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -159,6 +198,19 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         alignItems: 'center',
         paddingTop: 14,
+    },
+    /**
+     * With the argument gone there is nothing left for `space-between` to push
+     * against, so the panel takes the room instead of leaving a hole where the
+     * pitch was. Its content still starts at the top, so the form reads as the
+     * panel having grown into the screen — the same move the website makes.
+     * Anchoring it to the bottom instead put it back under the keyboard.
+     */
+    panelExpanded: {
+        flex: 1,
+    },
+    pitchHidden: {
+        display: 'none',
     },
     title: {
         fontFamily: 'Outfit_800ExtraBold',

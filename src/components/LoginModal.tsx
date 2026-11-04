@@ -579,19 +579,17 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
           />
         )}
 
-        {/* Both have to claim the height, or a step that anchors its button
-            to the bottom edge finds no bottom to anchor to and the whole form
-            floats in the middle of an empty panel. */}
+        {/* No `flex: 1` on either of these. Claiming the height here is what
+            would let a step pin its button to the bottom edge, but inside the
+            modal of react-native-paper that nesting collapses on iOS and takes
+            the whole form with it — the panel renders as an empty box under
+            the title. Android survives it, which is why it took a device to
+            see. The button sits under the content instead. */}
         <KeyboardAvoidingView
-          style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust based on header height
         >
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             {renderContent()}
           </ScrollView>
         </KeyboardAvoidingView>
@@ -641,14 +639,10 @@ const styles = StyleSheet.create({
   closeButton: {
     margin: 0,
   },
-  flex: {
-    flex: 1,
-  },
   stepper: {
     paddingHorizontal: 24,
   },
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: 24,
     paddingBottom: 24,
   },

@@ -171,11 +171,6 @@ export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isL
                 </HelperText>
             ) : null}
 
-            {/* The artboard puts the button on the bottom edge, not under the
-                last field: everything above is reading, and the one thing to
-                do is where the thumb already is. */}
-            <View style={styles.spacer} />
-
             <Button
                 mode="contained"
                 onPress={handleSubmit}
@@ -208,11 +203,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     container: {
-        flex: 1,
         gap: 16,
-    },
-    spacer: {
-        flex: 1,
     },
     subtitle: {
         marginBottom: 8,
