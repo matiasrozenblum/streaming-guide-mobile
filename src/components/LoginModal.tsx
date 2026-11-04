@@ -611,6 +611,13 @@ const styles = StyleSheet.create({
    * than as a card appearing over it.
    */
   panel: {
+    /**
+     * Explicit, because the two platforms disagreed without it: the content
+     * does not claim the panel's height —that nesting collapses the form on
+     * iOS— so Android was centring it and leaving a hole above the header
+     * while iOS started at the top. The form belongs at the top on both.
+     */
+    justifyContent: 'flex-start',
     marginTop: 60,
     marginHorizontal: 0,
     marginBottom: 0,
