@@ -648,6 +648,8 @@ const styles = StyleSheet.create({
   },
   stepper: {
     paddingHorizontal: 24,
+    // Room under the bar: the first line of every step was landing on it.
+    paddingBottom: 16,
   },
   scrollContent: {
     paddingHorizontal: 24,

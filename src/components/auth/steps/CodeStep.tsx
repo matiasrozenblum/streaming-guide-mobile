@@ -194,8 +194,7 @@ export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isL
 
 const styles = StyleSheet.create({
     changeEmail: {
-        alignSelf: 'flex-start',
-        marginLeft: -8,
+        alignSelf: 'center',
         marginTop: -8,
     },
     changeEmailLabel: {
@@ -206,10 +205,12 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     subtitle: {
+        textAlign: 'center',
         marginBottom: 8,
     },
     otpContainer: {
         flexDirection: 'row',
+        justifyContent: 'center',
         gap: 10,
     },
     otpBox: {
