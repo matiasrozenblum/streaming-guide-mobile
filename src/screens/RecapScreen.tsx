@@ -102,8 +102,28 @@ export const RecapScreen = () => {
         [recap],
     );
 
+    const accessToken = session?.accessToken;
+
+    /**
+     * Keyed on the token as well as the period, because this screen is mounted
+     * while the visitor is still being shown the pitch: without the token in
+     * the dependencies the request went out unauthenticated, came back 401 and
+     * left its error behind, and finishing the sign-up never asked again —
+     * somebody who had just created an account was greeted with "no pudimos
+     * traer tu resumen" until they left the tab and came back.
+     */
     useEffect(() => {
         let cancelled = false;
+
+        // Nothing to ask for yet, and nothing to show: the pitch is what
+        // renders in this state.
+        if (!accessToken) {
+            setRecap(null);
+            setError(null);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         setError(null);
         setCurrent(0);
@@ -122,7 +142,7 @@ export const RecapScreen = () => {
         return () => {
             cancelled = true;
         };
-    }, [period]);
+    }, [period, accessToken]);
 
     /**
      * The placas are downloaded as soon as the recap lands, one at a time.
@@ -133,7 +153,6 @@ export const RecapScreen = () => {
      * is then instant rather than a spinner.
      */
     useEffect(() => {
-        const accessToken = session?.accessToken;
         if (!recap?.enough_data || !accessToken || kinds.length === 0) return;
         let cancelled = false;
 
@@ -163,7 +182,7 @@ export const RecapScreen = () => {
         // `files` is deliberately out: it changes on every download and would
         // restart the loop. The `files[key]` check inside is only a shortcut.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recap, kinds, period, session?.accessToken]);
+    }, [recap, kinds, period, accessToken]);
 
     const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
