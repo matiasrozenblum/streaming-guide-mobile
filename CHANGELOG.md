@@ -19,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **El modal recibe por dónde se entró** (`initialEmail`, `social`), así que a nadie se le pide dos veces el mismo correo.
 - **El panel del formulario queda despegado del cartel**, como en el artboard, y en una pantalla más corta que el diseño lo que cede es el abanico y no el texto: el abanico ya es un recorte a propósito y perder un poco más no cuesta nada, media frase cortada se ve rota.
 
+### Changed
+
+- **Mi resumen dice en qué parte del calendario está**: una pastilla arriba del carrusel con lo que estás viendo y lo que viene — "Semana pasada · Nuevo resumen el viernes a las 18 hs", "Lunes a viernes · Mañana se suma el sábado". El rango de fechas solo no alcanzaba: de lunes a jueves lo que se muestra es la semana pasada, y un resumen viejo sin explicación se lee como un resumen roto. La frase sale del rango que manda la API y no del reloj del teléfono, así que uno con otro huso no puede nombrar el día equivocado.
+- **Se va el contador de reproducciones de la pantalla de espera**. El mínimo de tres ya no existe —la única regla es el calendario— y el contador además mentía: de lunes a jueves prometía que unas reproducciones más llenaban una semana que ya había cerrado. En su lugar dice cuándo llega el próximo resumen y con qué días se arma, y el encabezado muestra esas fechas y no las del período cerrado que quedó atrás.
+
 ### Fixed
 
 - **El teclado tapaba el formulario en la pantalla sin sesión**, en los dos sistemas: el panel está apoyado en el borde de abajo, que es justo de donde sube el teclado, y no había ningún manejo. Android pide `adjustResize` en el manifiesto, pero la app dibuja de borde a borde y eso deja sin efecto el redimensionado, así que no alcanzaba con arreglarlo en iOS. Mientras el teclado está arriba el argumento se retira entero y el panel toma la pantalla: encoger sólo el abanico no servía, porque el título, el texto y el cartel son unos 190px que no ceden, y lo que queda sobre el teclado tiene que alcanzar para el formulario completo con su botón.

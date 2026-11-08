@@ -10,7 +10,6 @@ export type RecapPeriod = 'week' | 'month';
 export interface Recap {
     enough_data: boolean;
     /** How many plays a recap needs. Sent by the API so the copy cannot drift. */
-    minimum_plays: number;
     period: { type: RecapPeriod | 'year'; from: string; to: string; label: string };
     top_programs: Array<{ program_id: number; program_name: string }>;
     top_streamers: Array<{ streamer_id: number; streamer_name: string }>;

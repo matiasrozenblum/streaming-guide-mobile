@@ -11,6 +11,8 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Header } from '../components/Header';
 import { EmptyRecap } from '../components/recap/EmptyRecap';
 import { RecapSignedOut } from '../components/recap/RecapSignedOut';
+import { RecapStatusPill } from '../components/recap/RecapStatusPill';
+import { recapWaiting } from '../utils/recapSchedule';
 import { PeriodSwitch } from '../components/recap/PeriodSwitch';
 import { PLACA_RATIO, PlacaCarousel, Slide } from '../components/recap/PlacaCarousel';
 import { ShareRow } from '../components/recap/ShareRow';
@@ -352,10 +354,20 @@ export const RecapScreen = () => {
                 )}
                 {recap && (
                     <Text style={[styles.range, { color: theme.colors.textSecondary }]}>
-                        {rangeLabel(recap)}
+                        {/* While there is nothing to show, the dates are the
+                            ones the next recap will cover: the period the API
+                            hands back is the closed one behind us, and printing
+                            it under "tu primer resumen llega el viernes" would
+                            date the promise to a week already gone. */}
+                        {recap.enough_data
+                            ? rangeLabel(recap)
+                            : recapWaiting(recap.period.type === 'month' ? 'month' : 'week')
+                                  .rangeLabel}
                     </Text>
                 )}
             </View>}
+
+            {session && recap?.enough_data && <RecapStatusPill range={recap.period} />}
 
             <View
                 style={styles.body}
