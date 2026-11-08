@@ -118,7 +118,16 @@ export function recapStatus(
   options: RecapStatusOptions = {},
 ): RecapStatus {
   const { compact = false, now } = options;
+  /**
+   * Three phrases the app says shorter than the site, because it has a phone's
+   * width and the pill is one line by design. Same voice, less room: the site
+   * can afford to explain the close, the app names it.
+   */
   const atEighteen = compact ? "18 hs" : "a las 18 hs";
+  const closesTomorrow = compact
+    ? "Cierra mañana a las 22 hs"
+    : "El cierre sale mañana a las 22 hs";
+  const monthSoFar = compact ? "Mes hasta hoy" : "Tu mes hasta hoy";
   const today = buenosAiresToday(now);
   const from = fromIso(range.from);
   const to = fromIso(range.to);
@@ -136,7 +145,7 @@ export function recapStatus(
       return { lead: "Lunes a viernes", rest: "Mañana se suma el sábado" };
     }
     if (dayOfWeek === 5) {
-      return { lead: "Lunes a sábado", rest: "Cierra mañana a las 22 hs" };
+      return { lead: "Lunes a sábado", rest: closesTomorrow };
     }
     return {
       lead: "Semana completa",
@@ -156,7 +165,7 @@ export function recapStatus(
   }
 
   if (to.getUTCDate() === lastDayOfMonth(to) - 1) {
-    return { lead: "Mes hasta hoy", rest: "Cierra mañana a las 22 hs" };
+    return { lead: monthSoFar, rest: closesTomorrow };
   }
 
   /**
