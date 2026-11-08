@@ -20,7 +20,8 @@ const TIMEZONE = "America/Argentina/Buenos_Aires";
  * A device in another timezone would otherwise name the wrong day — and the
  * whole point of this file is naming days.
  */
-function buenosAiresToday(): Date {
+function buenosAiresToday(override?: Date): Date {
+  if (override) return override;
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TIMEZONE,
     year: "numeric",
@@ -100,7 +101,7 @@ export interface RecapStatus {
 }
 
 export function recapStatus(range: RecapRange, now?: Date): RecapStatus {
-  const today = now ?? buenosAiresToday();
+  const today = buenosAiresToday(now);
   const from = fromIso(range.from);
   const to = fromIso(range.to);
 
@@ -166,43 +167,71 @@ export interface RecapWaiting {
   body: string;
 }
 
-export function recapWaiting(type: RecapPeriodType, now?: Date): RecapWaiting {
-  const today = now ?? buenosAiresToday();
+export function recapWaiting(
+  type: RecapPeriodType,
+  /**
+   * The range the API published, used once the period is open. The dates of a
+   * delivery that already happened are the server's to state, not something to
+   * recompute here — doing that printed Monday-to-Friday on a Sunday, when the
+   * instalment on the wire already ran to Saturday.
+   */
+  published?: RecapRange,
+  now?: Date,
+): RecapWaiting {
+  const today = buenosAiresToday(now);
 
   if (type === "week") {
-    const monday = weekStart(today);
-    const friday = addDays(monday, 4);
-    const dayOfWeek = (today.getUTCDay() + 6) % 7;
-    const published = dayOfWeek >= 4; // Friday onwards
+    const dayOfWeek = (today.getUTCDay() + 6) % 7; // 0 = Monday
+    const isOpen = dayOfWeek >= 4; // Friday onwards
 
+    if (isOpen) {
+      const monday = weekStart(today);
+      return {
+        rangeLabel: published
+          ? rangeLabel(fromIso(published.from), fromIso(published.to))
+          : rangeLabel(monday, addDays(monday, dayOfWeek)),
+        title: "Todavía no hay nada que resumir",
+        // Naming the day when the day is today reads as next Sunday.
+        body: `Mirá programas y streamers en La Guía y tu resumen se arma solo. Se completa ${
+          dayOfWeek === 6 ? "hoy" : "el domingo"
+        } a las 22 hs.`,
+      };
+    }
+
+    const monday = weekStart(today);
     return {
-      rangeLabel: rangeLabel(monday, friday),
-      title: published
-        ? "Todavía no hay nada que resumir"
-        : "Tu primer resumen llega el viernes",
-      body: published
-        ? "Mirá programas y streamers en La Guía y tu resumen se arma solo. Se completa el domingo a las 22 hs."
-        : "Va a estar listo el viernes a las 18 hs con lo que veas de lunes a viernes. Mirá programas y streamers en La Guía y lo armamos.",
+      rangeLabel: rangeLabel(monday, addDays(monday, 4)),
+      title: "Tu primer resumen llega el viernes",
+      body: "Va a estar listo el viernes a las 18 hs con lo que veas de lunes a viernes. Mirá programas y streamers en La Guía y lo armamos.",
     };
   }
 
   const first = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
   );
-  const penultimate = lastDayOfMonth(today) - 1;
+  const last = lastDayOfMonth(today);
+  const penultimate = last - 1;
+  const isOpen = today.getUTCDate() >= penultimate;
+
+  if (isOpen) {
+    return {
+      rangeLabel: published
+        ? rangeLabel(fromIso(published.from), fromIso(published.to))
+        : rangeLabel(first, today),
+      title: "Todavía no hay nada que resumir",
+      body: `Mirá programas y streamers en La Guía y tu resumen se arma solo. Se completa ${
+        today.getUTCDate() === last ? "hoy" : `el ${last}`
+      } a las 22 hs.`,
+    };
+  }
+
   const closing = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), penultimate),
   );
-  const published = today.getUTCDate() >= penultimate;
-
   return {
     rangeLabel: rangeLabel(first, closing),
-    title: published
-      ? "Todavía no hay nada que resumir"
-      : `Tu resumen llega el ${penultimate}`,
-    body: published
-      ? "Mirá programas y streamers en La Guía y tu resumen se arma solo."
-      : `Va a estar listo el ${penultimate} a las 18 hs con lo que veas del 1 al ${penultimate}. Mirá programas y streamers en La Guía y lo armamos.`,
+    title: `Tu resumen llega el ${penultimate}`,
+    body: `Va a estar listo el ${penultimate} a las 18 hs con lo que veas del 1 al ${penultimate}. Mirá programas y streamers en La Guía y lo armamos.`,
   };
 }
 

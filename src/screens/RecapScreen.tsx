@@ -361,8 +361,10 @@ export const RecapScreen = () => {
                             date the promise to a week already gone. */}
                         {recap.enough_data
                             ? rangeLabel(recap)
-                            : recapWaiting(recap.period.type === 'month' ? 'month' : 'week')
-                                  .rangeLabel}
+                            : recapWaiting(
+                                  recap.period.type === 'month' ? 'month' : 'week',
+                                  recap.period,
+                              ).rangeLabel}
                     </Text>
                 )}
             </View>}

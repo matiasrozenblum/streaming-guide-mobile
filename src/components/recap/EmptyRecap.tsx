@@ -96,7 +96,10 @@ function PlacaSkeleton() {
  */
 export const EmptyRecap = ({ recap }: { recap: Recap }) => {
     const theme = getTheme('dark');
-    const waiting = recapWaiting(recap.period.type === 'month' ? 'month' : 'week');
+    const waiting = recapWaiting(
+        recap.period.type === 'month' ? 'month' : 'week',
+        recap.period,
+    );
 
     return (
         <View style={styles.root}>
