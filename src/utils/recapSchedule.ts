@@ -100,7 +100,25 @@ export interface RecapStatus {
   rest: string;
 }
 
-export function recapStatus(range: RecapRange, now?: Date): RecapStatus {
+export interface RecapStatusOptions {
+  /**
+   * Drop "a las" from the two longest lines. Only the app asks for it: on a
+   * 390px screen "Nuevo resumen el viernes a las 18 hs" runs past the end of
+   * the pill and gets cut, and the pill is one line by design. The other five
+   * states fit as they are, so they read the same on both surfaces — this is
+   * about room, not about two voices.
+   */
+  compact?: boolean;
+  /** For tests; otherwise today in Buenos Aires. */
+  now?: Date;
+}
+
+export function recapStatus(
+  range: RecapRange,
+  options: RecapStatusOptions = {},
+): RecapStatus {
+  const { compact = false, now } = options;
+  const atEighteen = compact ? "18 hs" : "a las 18 hs";
   const today = buenosAiresToday(now);
   const from = fromIso(range.from);
   const to = fromIso(range.to);
@@ -108,7 +126,10 @@ export function recapStatus(range: RecapRange, now?: Date): RecapStatus {
   if (range.type === "week") {
     const live = toIso(weekStart(today)) === toIso(from);
     if (!live) {
-      return { lead: "Semana pasada", rest: "Nuevo resumen el viernes a las 18 hs" };
+      return {
+        lead: "Semana pasada",
+        rest: `Nuevo resumen el viernes ${atEighteen}`,
+      };
     }
     const dayOfWeek = (to.getUTCDay() + 6) % 7; // 0 = Monday
     if (dayOfWeek <= 4) {
@@ -117,7 +138,10 @@ export function recapStatus(range: RecapRange, now?: Date): RecapStatus {
     if (dayOfWeek === 5) {
       return { lead: "Lunes a sábado", rest: "Cierra mañana a las 22 hs" };
     }
-    return { lead: "Semana completa", rest: "Nuevo resumen el viernes a las 18 hs" };
+    return {
+      lead: "Semana completa",
+      rest: `Nuevo resumen el viernes ${atEighteen}`,
+    };
   }
 
   const live =

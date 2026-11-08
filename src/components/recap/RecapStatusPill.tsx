@@ -13,7 +13,9 @@ import { recapStatus, type RecapRange } from '../../utils/recapSchedule';
  * another timezone cannot name the wrong day.
  */
 export const RecapStatusPill = ({ range }: { range: RecapRange }) => {
-    const { lead, rest } = recapStatus(range);
+    // Compact: on a phone the two longest lines run past the end of the pill,
+    // and the pill is one line by design.
+    const { lead, rest } = recapStatus(range, { compact: true });
 
     return (
         <View style={styles.root}>
