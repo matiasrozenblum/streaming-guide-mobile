@@ -224,10 +224,13 @@ export function recapWaiting(
           ? rangeLabel(fromIso(published.from), fromIso(published.to))
           : rangeLabel(monday, addDays(monday, dayOfWeek)),
         title: "Todavía no hay nada que resumir",
-        // Naming the day when the day is today reads as next Sunday.
-        body: `Mirá programas y streamers en La Guía y tu resumen se arma solo. Se completa ${
-          dayOfWeek === 6 ? "hoy" : "el domingo"
-        } a las 22 hs.`,
+        /**
+         * No closing time here. Somebody who has watched nothing does not need
+         * a deadline for a recap that would be empty either way — the one
+         * useful thing to say is what to do, and the button under this says
+         * it. The closing time belongs in the pill, where there is a recap.
+         */
+        body: "Mirá programas y streamers en La Guía y tu resumen se arma solo.",
       };
     }
 
@@ -242,8 +245,7 @@ export function recapWaiting(
   const first = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
   );
-  const last = lastDayOfMonth(today);
-  const penultimate = last - 1;
+  const penultimate = lastDayOfMonth(today) - 1;
   const isOpen = today.getUTCDate() >= penultimate;
 
   if (isOpen) {
@@ -252,9 +254,7 @@ export function recapWaiting(
         ? rangeLabel(fromIso(published.from), fromIso(published.to))
         : rangeLabel(first, today),
       title: "Todavía no hay nada que resumir",
-      body: `Mirá programas y streamers en La Guía y tu resumen se arma solo. Se completa ${
-        today.getUTCDate() === last ? "hoy" : `el ${last}`
-      } a las 22 hs.`,
+      body: "Mirá programas y streamers en La Guía y tu resumen se arma solo.",
     };
   }
 
