@@ -162,7 +162,13 @@ export const RecapScreen = () => {
             for (const kind of kinds) {
                 if (cancelled) return;
                 const key = `${period}:${recap.period.from}:${recap.period.to}:${kind}`;
-                if (files[key]) continue;
+                /**
+                 * Asked every time, even for one we remember downloading: the
+                 * service returns the cached file's uri without touching the
+                 * network when it is still on disk, and if something removed
+                 * it underneath us this is what notices. Remembering a uri is
+                 * not the same as the file being there.
+                 */
                 try {
                     const uri = await RecapService.downloadPlaca({
                         period,
@@ -182,7 +188,7 @@ export const RecapScreen = () => {
             cancelled = true;
         };
         // `files` is deliberately out: it changes on every download and would
-        // restart the loop. The `files[key]` check inside is only a shortcut.
+        // restart the loop, and the service already short-circuits on disk.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [recap, kinds, period, accessToken]);
 

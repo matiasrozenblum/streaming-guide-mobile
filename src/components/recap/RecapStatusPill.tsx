@@ -37,7 +37,9 @@ const styles = StyleSheet.create({
     root: {
         paddingTop: 12,
         paddingHorizontal: 20,
-        paddingBottom: 0,
+        // The carousel starts right under this, and with nothing between them
+        // the first placa looked stuck to the pill.
+        paddingBottom: 12,
     },
     box: {
         flexDirection: 'row',

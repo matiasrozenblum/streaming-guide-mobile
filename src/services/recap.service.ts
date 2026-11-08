@@ -40,11 +40,23 @@ function placaFileName(
  * empties this directory under pressure, but not before it has grown for
  * months, and nothing in here is worth keeping once its dates have passed.
  */
-function pruneStale(directory: Directory, keep: string): void {
+function pruneStale(directory: Directory, period: RecapPeriod, keep: string): void {
     try {
         for (const entry of directory.list()) {
             const name = entry.name;
-            if (name.endsWith('.png') && !name.startsWith(keep)) {
+            /**
+             * Only earlier instalments of this same period, which is what the
+             * paragraph above always meant. Matching on the full prefix alone
+             * also swept away the other period's placas: opening the month
+             * deleted the week's, going back deleted the month's, and the
+             * screen — which remembers the files it downloaded — then skipped
+             * re-downloading them and drew nothing.
+             */
+            if (
+                name.endsWith('.png') &&
+                name.startsWith(`${period}-`) &&
+                !name.startsWith(keep)
+            ) {
                 new File(directory, name).delete();
             }
         }
@@ -87,7 +99,7 @@ export const RecapService = {
         const file = new File(directory, placaFileName(period, from, to, kind));
         if (file.exists) return file.uri;
 
-        pruneStale(directory, `${period}-${from}-${to}-`);
+        pruneStale(directory, period, `${period}-${from}-${to}-`);
 
         const downloaded = await File.downloadFileAsync(
             `${WEB_URL}/api/og/recap?period=${period}&kind=${kind}`,
