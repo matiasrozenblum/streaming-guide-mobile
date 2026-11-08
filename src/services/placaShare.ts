@@ -33,6 +33,14 @@ const FACEBOOK_APP_ID: string = Constants.expoConfig?.extra?.facebookAppId ?? ''
 
 const MESSAGE = 'Mi resumen en La Guía del Streaming';
 
+/**
+ * Where a shared link lands: the section itself, which answers somebody
+ * without an account with what it is and an invitation to open one.
+ */
+const SHARE_URL: string = `${
+    Constants.expoConfig?.extra?.webUrl ?? 'https://laguiadelstreaming.com'
+}/mi-resumen`;
+
 /** How to tell whether a target app is on the phone, per platform. */
 const PRESENCE: Record<
     Exclude<ShareTarget, 'download'>,
@@ -71,6 +79,27 @@ async function saveToCameraRoll(fileUri: string): Promise<ShareResult> {
     return { outcome: 'saved' };
 }
 
+/**
+ * Where each network opens its composer, already filled in.
+ *
+ * WhatsApp has a scheme of its own and takes the text. X and Facebook are
+ * reached by the https links their apps claim, which is what works after the
+ * rebrand left `twitter://post` unreliable. Facebook drops any text we pass,
+ * by its own policy, so it gets the link alone.
+ */
+function composerUrl(target: 'whatsapp' | 'x' | 'facebook'): string {
+    const text = encodeURIComponent(`${MESSAGE} ${SHARE_URL}`);
+    if (target === 'whatsapp') return `whatsapp://send?text=${text}`;
+    if (target === 'x') {
+        return `https://x.com/intent/post?text=${encodeURIComponent(
+            MESSAGE,
+        )}&url=${encodeURIComponent(SHARE_URL)}`;
+    }
+    return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+        SHARE_URL,
+    )}`;
+}
+
 /** Last resort: the OS sheet, which can always take a PNG somewhere. */
 async function systemSheet(fileUri: string): Promise<ShareResult> {
     try {
@@ -95,7 +124,12 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  *
  * - Instagram takes a Stories handoff, but only against a registered Facebook
  *   app id. Without one it is the system sheet or nothing.
- * - WhatsApp, X and Facebook take an image through their own share intent.
+ * - WhatsApp, X and Facebook take a link and a line of text, and open on their
+ *   own composer. They do not take a file: an image can only reach them
+ *   through the system sheet, which is why handing them the PNG failed and
+ *   dropped everyone into that sheet. This is the same trade every app makes
+ *   — the one that shares a song to WhatsApp is sharing its url, not a
+ *   picture of it. The placa stays reachable through Instagram and Descargar.
  */
 export async function sharePlaca(
     target: ShareTarget,
@@ -109,7 +143,15 @@ export async function sharePlaca(
         }
     }
 
-    if (!(await isInstalled(target))) return { outcome: 'missing' };
+    // Only WhatsApp is reached by a scheme of its own, so it is the only one
+    // whose absence is worth checking. X and Facebook are opened by https
+    // links their apps claim: with the app installed it opens, without it the
+    // browser does — and either way something happens, which beats the dead
+    // end this check used to produce for X, whose `twitter://` scheme iOS
+    // never answered for us.
+    if (target === 'whatsapp' && !(await isInstalled(target))) {
+        return { outcome: 'missing' };
+    }
 
     try {
         if (target === 'instagram') {
@@ -124,20 +166,7 @@ export async function sharePlaca(
             return { outcome: 'shared' };
         }
 
-        const social =
-            target === 'whatsapp'
-                ? Social.Whatsapp
-                : target === 'x'
-                  ? Social.Twitter
-                  : Social.Facebook;
-
-        await Share.shareSingle({
-            social,
-            url: fileUri,
-            type: 'image/png',
-            filename: 'mi-resumen',
-            message: MESSAGE,
-        });
+        await Linking.openURL(composerUrl(target));
         return { outcome: 'shared' };
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
