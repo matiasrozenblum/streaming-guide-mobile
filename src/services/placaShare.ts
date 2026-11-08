@@ -82,14 +82,11 @@ async function saveToCameraRoll(fileUri: string): Promise<ShareResult> {
 /**
  * Where each network opens its composer, already filled in.
  *
- * WhatsApp has a scheme of its own and takes the text. X and Facebook are
- * reached by the https links their apps claim, which is what works after the
- * rebrand left `twitter://post` unreliable. Facebook drops any text we pass,
- * by its own policy, so it gets the link alone.
+ * Both are reached by the https links their apps claim, which is what works
+ * after the rebrand left `twitter://post` unreliable. Facebook drops any text
+ * we pass, by its own policy, so it gets the link alone.
  */
-function composerUrl(target: 'whatsapp' | 'x' | 'facebook'): string {
-    const text = encodeURIComponent(`${MESSAGE} ${SHARE_URL}`);
-    if (target === 'whatsapp') return `whatsapp://send?text=${text}`;
+function composerUrl(target: 'x' | 'facebook'): string {
     if (target === 'x') {
         return `https://x.com/intent/post?text=${encodeURIComponent(
             MESSAGE,
@@ -124,12 +121,14 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  *
  * - Instagram takes a Stories handoff, but only against a registered Facebook
  *   app id. Without one it is the system sheet or nothing.
- * - WhatsApp, X and Facebook take a link and a line of text, and open on their
- *   own composer. They do not take a file: an image can only reach them
- *   through the system sheet, which is why handing them the PNG failed and
- *   dropped everyone into that sheet. This is the same trade every app makes
- *   — the one that shares a song to WhatsApp is sharing its url, not a
- *   picture of it. The placa stays reachable through Instagram and Descargar.
+ * - WhatsApp takes the image itself, through the document-interaction route
+ *   it registers for (`net.whatsapp.image`). It is the file or a line of
+ *   text, never both: the url scheme carries text and this one carries the
+ *   file, and there is no third door that carries the two.
+ * - X and Facebook take a link and a line of text, and open on their own
+ *   composer. Neither accepts an image by any public route — the one way to
+ *   put a picture in front of them is the system sheet, which is what every
+ *   app that shares to them ends up doing.
  */
 export async function sharePlaca(
     target: ShareTarget,
@@ -143,12 +142,11 @@ export async function sharePlaca(
         }
     }
 
-    // Only WhatsApp is reached by a scheme of its own, so it is the only one
-    // whose absence is worth checking. X and Facebook are opened by https
-    // links their apps claim: with the app installed it opens, without it the
-    // browser does — and either way something happens, which beats the dead
-    // end this check used to produce for X, whose `twitter://` scheme iOS
-    // never answered for us.
+    // Only WhatsApp needs to be there for its route to work. X and Facebook
+    // are opened by https links their apps claim: with the app installed it
+    // opens, without it the browser does — either way something happens,
+    // which beats the dead end this check used to produce for X, whose
+    // `twitter://` scheme iOS never answered for us.
     if (target === 'whatsapp' && !(await isInstalled(target))) {
         return { outcome: 'missing' };
     }
@@ -166,11 +164,33 @@ export async function sharePlaca(
             return { outcome: 'shared' };
         }
 
+        if (target === 'whatsapp') {
+            /**
+             * `message` has to be here even though this route hands over a
+             * file and WhatsApp never shows the text. The module's own guard
+             * returns early when it is missing — without resolving or
+             * rejecting — and the promise would hang forever.
+             */
+            await Share.shareSingle({
+                social: Social.Whatsapp,
+                url: fileUri,
+                type: 'image/png',
+                message: MESSAGE,
+            });
+            return { outcome: 'shared' };
+        }
+
         await Linking.openURL(composerUrl(target));
         return { outcome: 'shared' };
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
-        // The app is there but would not take the handoff: the sheet still can.
+        /**
+         * The app is there but would not take the handoff: the sheet still
+         * can. Logged because that refusal is the interesting part — this is
+         * how WhatsApp ended up opening the system sheet, and the reason was
+         * never written down anywhere.
+         */
+        console.warn('[Compartir] la entrega directa falló', target, error);
         return systemSheet(fileUri);
     }
 }
