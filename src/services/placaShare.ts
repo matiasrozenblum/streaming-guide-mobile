@@ -1,4 +1,5 @@
 import { Linking, Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import * as MediaLibrary from 'expo-media-library';
 import Share, { Social } from 'react-native-share';
@@ -166,14 +167,24 @@ export async function sharePlaca(
 
         if (target === 'whatsapp') {
             /**
-             * `message` has to be here even though this route hands over a
-             * file and WhatsApp never shows the text. The module's own guard
-             * returns early when it is missing — without resolving or
-             * rejecting — and the promise would hang forever.
+             * The bytes, not a path to them.
+             *
+             * The handoff reads whatever `url` points at and rejects without
+             * saying why when it comes back empty — which is the likeliest
+             * reason this ended up in the system sheet, since the one check
+             * that could also reject (is WhatsApp there?) had already passed
+             * ours a line earlier. Reading the file here removes that whole
+             * class of failure: a `data:` url is handed over as-is, and the
+             * module takes one as readily as a path.
+             *
+             * `message` rides along even though WhatsApp never shows it: the
+             * module's own guard returns early when it is missing, without
+             * resolving or rejecting, and the promise would hang forever.
              */
+            const base64 = await new File(fileUri).base64();
             await Share.shareSingle({
                 social: Social.Whatsapp,
-                url: fileUri,
+                url: `data:image/png;base64,${base64}`,
                 type: 'image/png',
                 message: MESSAGE,
             });
@@ -191,6 +202,6 @@ export async function sharePlaca(
          * never written down anywhere.
          */
         console.warn('[Compartir] la entrega directa falló', target, error);
-        return systemSheet(fileUri);
+        return { ...(await systemSheet(fileUri)), detail: String(error) };
     }
 }
