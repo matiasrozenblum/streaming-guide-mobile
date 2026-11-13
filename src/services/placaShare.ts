@@ -133,10 +133,13 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  * - WhatsApp gets the system sheet. It registers a route for files of its
  *   own, and that route works — but Apple turned the "Open in…" menu it used
  *   into the share sheet, so it lands there anyway. See below.
- * - X and Facebook take a link and a line of text, and open on their own
- *   composer. Neither accepts an image by any public route — the one way to
- *   put a picture in front of them is the system sheet, which is what every
- *   app that shares to them ends up doing.
+ * - Facebook takes the placa as a story, the same handoff Instagram takes
+ *   and against the same app id. Its feed would need Facebook's own SDK, and
+ *   the sharer link only ever carries a url.
+ * - X takes a link and a line of text and opens on its composer. It has no
+ *   route for an image: its own module only ever builds `twitter://post` or
+ *   the web intent, both of them text and url. The system sheet is the only
+ *   way a picture reaches it.
  */
 export async function sharePlaca(
     target: ShareTarget,
@@ -188,6 +191,24 @@ export async function sharePlaca(
          * hacerlo explícito ahorra el rodeo y deja escrito por qué.
          */
         if (target === 'whatsapp') return systemSheet(fileUri);
+
+        if (target === 'facebook' && FACEBOOK_APP_ID) {
+            /**
+             * A Facebook story, the same handoff Instagram takes and against
+             * the same app id. It is the one route that carries the placa
+             * itself: the sharer link carries a url and the feed would need
+             * Facebook's SDK. Stories is where this belongs anyway — it is
+             * what the placa is shaped like.
+             */
+            await Share.shareSingle({
+                social: Social.FacebookStories,
+                appId: FACEBOOK_APP_ID,
+                backgroundImage: fileUri,
+                backgroundBottomColor: '#0F172A',
+                backgroundTopColor: '#0F172A',
+            });
+            return { outcome: 'shared' };
+        }
 
         await Linking.openURL(composerUrl(target));
         return { outcome: 'shared' };

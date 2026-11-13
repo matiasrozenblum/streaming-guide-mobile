@@ -44,7 +44,17 @@ const getWebUrl = () => {
 
 /** The apps the share sheet is allowed to look for and hand a placa to. */
 const SHARE_TARGETS = {
-    ios: ['instagram', 'instagram-stories', 'whatsapp', 'twitter', 'fb'],
+    // `facebook-stories` va aparte de `fb`: es el esquema por el que se le
+    // entrega la placa como historia, y sin declararlo iOS responde que no
+    // está instalada aunque lo esté.
+    ios: [
+        'instagram',
+        'instagram-stories',
+        'whatsapp',
+        'twitter',
+        'fb',
+        'facebook-stories',
+    ],
     android: [
         'com.instagram.android',
         'com.whatsapp',
