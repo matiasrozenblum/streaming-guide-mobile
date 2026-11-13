@@ -23,6 +23,38 @@ const GENDER_MAP: Record<string, string> = {
     'rather_not_say': 'Prefiero no decir'
 };
 
+/**
+ * La fecha, parada al mediodía.
+ *
+ * Una fecha de nacimiento es un día, no un instante, pero viaja en un `Date`
+ * que sí lo es. Parada a medianoche, cualquier conversión de zona horaria la
+ * corre al día anterior o al siguiente —de ahí que elegir el 23 terminara
+ * guardando el 24—. Al mediodía no hay desplazamiento posible: ninguna zona
+ * está a más de catorce horas de otra.
+ *
+ * El mismo recurso que ya usa la pantalla de perfil al leer la fecha del
+ * servidor; faltaba acá, que es donde se elige.
+ */
+function atMidday(date: Date): Date {
+    return new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        12,
+    );
+}
+
+/**
+ * Lo que vuelve del paso anterior es `DD/MM/YYYY`, que `new Date` lee como
+ * mes/día/año: con el 23 de diciembre intentaba armar el mes 23.
+ */
+function parseBirthDate(value?: string): Date | null {
+    if (!value) return null;
+    const [d, m, y] = value.split('/').map(Number);
+    if (!d || !m || !y) return null;
+    return new Date(y, m - 1, d, 12);
+}
+
 export const ProfileStep = ({
     initialFirst = '',
     initialLast = '',
@@ -35,7 +67,7 @@ export const ProfileStep = ({
     const [firstName, setFirstName] = useState(initialFirst);
     const [lastName, setLastName] = useState(initialLast);
     const [birthDate, setBirthDate] = useState<Date | null>(
-        initialBirthDate ? new Date(initialBirthDate) : null
+        parseBirthDate(initialBirthDate),
     );
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [gender, setGender] = useState(initialGender);
@@ -50,7 +82,7 @@ export const ProfileStep = ({
             setShowDatePicker(false);
         }
         if (selectedDate) {
-            setBirthDate(selectedDate);
+            setBirthDate(atMidday(selectedDate));
             // Age validation
             const now = new Date();
             let age = now.getFullYear() - selectedDate.getFullYear();
