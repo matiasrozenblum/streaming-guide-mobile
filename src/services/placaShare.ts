@@ -1,5 +1,4 @@
 import { Linking, Platform } from 'react-native';
-import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import * as MediaLibrary from 'expo-media-library';
 import Share, { Social } from 'react-native-share';
@@ -122,10 +121,9 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  *
  * - Instagram takes a Stories handoff, but only against a registered Facebook
  *   app id. Without one it is the system sheet or nothing.
- * - WhatsApp takes the image itself, through the document-interaction route
- *   it registers for (`net.whatsapp.image`). It is the file or a line of
- *   text, never both: the url scheme carries text and this one carries the
- *   file, and there is no third door that carries the two.
+ * - WhatsApp gets the system sheet. It registers a route for files of its
+ *   own, and that route works — but Apple turned the "Open in…" menu it used
+ *   into the share sheet, so it lands there anyway. See below.
  * - X and Facebook take a link and a line of text, and open on their own
  *   composer. Neither accepts an image by any public route — the one way to
  *   put a picture in front of them is the system sheet, which is what every
@@ -165,31 +163,22 @@ export async function sharePlaca(
             return { outcome: 'shared' };
         }
 
-        if (target === 'whatsapp') {
-            /**
-             * The bytes, not a path to them.
-             *
-             * The handoff reads whatever `url` points at and rejects without
-             * saying why when it comes back empty — which is the likeliest
-             * reason this ended up in the system sheet, since the one check
-             * that could also reject (is WhatsApp there?) had already passed
-             * ours a line earlier. Reading the file here removes that whole
-             * class of failure: a `data:` url is handed over as-is, and the
-             * module takes one as readily as a path.
-             *
-             * `message` rides along even though WhatsApp never shows it: the
-             * module's own guard returns early when it is missing, without
-             * resolving or rejecting, and the promise would hang forever.
-             */
-            const base64 = await new File(fileUri).base64();
-            await Share.shareSingle({
-                social: Social.Whatsapp,
-                url: `data:image/png;base64,${base64}`,
-                type: 'image/png',
-                message: MESSAGE,
-            });
-            return { outcome: 'shared' };
-        }
+        /**
+         * WhatsApp sale por el menú del sistema, y no por una vuelta más
+         * larga que termina en el mismo lugar.
+         *
+         * Tiene una vía propia para archivos —el UTI `net.whatsapp.image`,
+         * por document interaction— y la usábamos. Funcionaba: el log del
+         * dispositivo muestra la entrega aceptada, sin un solo rechazo. Lo
+         * que pasa es que Apple reemplazó el viejo menú "Abrir en…" por el
+         * menú de compartir, así que ese camino desemboca ahí de todos modos,
+         * después de leer el archivo y copiarlo a un temporal para nada.
+         *
+         * No queda otra vía: el esquema `whatsapp://` lleva texto y no
+         * archivos. Entregar una imagen a WhatsApp en iOS es el menú, y
+         * hacerlo explícito ahorra el rodeo y deja escrito por qué.
+         */
+        if (target === 'whatsapp') return systemSheet(fileUri);
 
         await Linking.openURL(composerUrl(target));
         return { outcome: 'shared' };
@@ -202,6 +191,6 @@ export async function sharePlaca(
          * never written down anywhere.
          */
         console.warn('[Compartir] la entrega directa falló', target, error);
-        return { ...(await systemSheet(fileUri)), detail: String(error) };
+        return systemSheet(fileUri);
     }
 }

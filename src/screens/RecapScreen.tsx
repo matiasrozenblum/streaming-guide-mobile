@@ -225,19 +225,7 @@ export const RecapScreen = () => {
             try {
                 const { outcome, detail } = await sharePlaca(target, slide.uri);
                 if (detail) console.warn('[Recap] share failed', target, detail);
-                /**
-                 * TEMPORAL — sacar una vez confirmado lo de WhatsApp.
-                 *
-                 * Cuando la entrega directa se rechaza y caemos al menú del
-                 * sistema, el motivo se muestra acá. Un build de release no
-                 * manda los console.* al log del dispositivo, así que la
-                 * pantalla es el único lugar donde se puede leer.
-                 */
-                setNotice(
-                    outcome === 'fallback' && detail
-                        ? `${OUTCOME_MESSAGE[outcome]} · ${detail.slice(0, 120)}`
-                        : (OUTCOME_MESSAGE[outcome] ?? null),
-                );
+                setNotice(OUTCOME_MESSAGE[outcome] ?? null);
                 void trackEvent('recap_share', {
                     target,
                     outcome,
