@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Platform, Keyboard, Modal } from 'r
 import { TextInput, Button, HelperText, Menu, Text, useTheme } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
+import utcPlugin from 'dayjs/plugin/utc';
 
 interface ProfileStepProps {
     initialFirst?: string;
@@ -24,6 +25,19 @@ const GENDER_MAP: Record<string, string> = {
 };
 
 /**
+ * El huso en el que trabaja el selector: ninguno.
+ *
+ * Su calendario interno se siembra convirtiendo el valor al huso del
+ * aparato, y con fechas viejas eso mueve la celda marcada: elegir el 30 de
+ * diciembre de 1999 devolvía el 31, porque ese verano Argentina estaba en
+ * UTC-2 y la conversión cruzaba la medianoche. Fijándolo en UTC no hay
+ * conversión que cruzar, y la celda que se toca es la que vuelve.
+ */
+const UTC = 0;
+
+dayjs.extend(utcPlugin);
+
+/**
  * La fecha, parada al mediodía.
  *
  * Una fecha de nacimiento es un día, no un instante, pero viaja en un `Date`
@@ -37,10 +51,12 @@ const GENDER_MAP: Record<string, string> = {
  */
 function atMidday(date: Date): Date {
     return new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        12,
+        Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate(),
+            12,
+        ),
     );
 }
 
@@ -52,7 +68,7 @@ function parseBirthDate(value?: string): Date | null {
     if (!value) return null;
     const [d, m, y] = value.split('/').map(Number);
     if (!d || !m || !y) return null;
-    return new Date(y, m - 1, d, 12);
+    return new Date(Date.UTC(y, m - 1, d, 12));
 }
 
 export const ProfileStep = ({
@@ -85,9 +101,9 @@ export const ProfileStep = ({
             setBirthDate(atMidday(selectedDate));
             // Age validation
             const now = new Date();
-            let age = now.getFullYear() - selectedDate.getFullYear();
-            const m = now.getMonth() - selectedDate.getMonth();
-            if (m < 0 || (m === 0 && now.getDate() < selectedDate.getDate())) {
+            let age = now.getUTCFullYear() - selectedDate.getUTCFullYear();
+            const m = now.getUTCMonth() - selectedDate.getUTCMonth();
+            if (m < 0 || (m === 0 && now.getUTCDate() < selectedDate.getUTCDate())) {
                 age--;
             }
             if (age < 18) {
@@ -113,7 +129,7 @@ export const ProfileStep = ({
 
     const getFormattedDate = () => {
         if (!birthDate) return '';
-        return dayjs(birthDate).format('DD/MM/YY');
+        return dayjs(birthDate).utc().format('DD/MM/YY');
     };
 
     const handleSubmit = () => {
@@ -124,7 +140,7 @@ export const ProfileStep = ({
         if (birthDateError) return;
 
         setLocalError('');
-        const formatted = dayjs(birthDate).format('DD/MM/YYYY');
+        const formatted = dayjs(birthDate).utc().format('DD/MM/YYYY');
         onSubmit(firstName, lastName, formatted, gender);
     };
 
@@ -209,7 +225,8 @@ export const ProfileStep = ({
                     >
                         <TouchableOpacity style={[styles.iosInlineContainer, { backgroundColor: theme.colors.surface }]} activeOpacity={1}>
                             <DateTimePicker
-                                value={birthDate || new Date(2000, 0, 1)}
+                                value={birthDate || new Date(Date.UTC(2000, 0, 1, 12))}
+                                timeZoneOffsetInMinutes={UTC}
                                 mode="date"
                                 display="inline"
                                 onChange={handleDateChange}
@@ -225,7 +242,8 @@ export const ProfileStep = ({
 
             {showDatePicker && Platform.OS === 'android' && (
                 <DateTimePicker
-                    value={birthDate || new Date(2000, 0, 1)}
+                    value={birthDate || new Date(Date.UTC(2000, 0, 1, 12))}
+                    timeZoneOffsetInMinutes={UTC}
                     mode="date"
                     display="default"
                     onChange={handleDateChange}
