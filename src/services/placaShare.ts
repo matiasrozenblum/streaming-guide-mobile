@@ -100,10 +100,19 @@ function composerUrl(target: 'x' | 'facebook'): string {
 /** Last resort: the OS sheet, which can always take a PNG somewhere. */
 async function systemSheet(fileUri: string): Promise<ShareResult> {
     try {
+        /**
+         * La placa sola, sin texto al lado.
+         *
+         * Mandar los dos arma un paquete de dos piezas, y no todas las apps
+         * toman las dos: algunas se quedan con el texto y sueltan la imagen,
+         * que es justo lo que no queremos. Con una sola pieza iOS resuelve el
+         * `.png` a `public.png` y ofrece las apps que reciben imágenes.
+         * El texto tampoco hace falta: la placa ya lleva impreso de dónde
+         * sale y la dirección del sitio.
+         */
         await Share.open({
             url: fileUri,
             type: 'image/png',
-            message: MESSAGE,
             failOnCancel: false,
         });
         return { outcome: 'fallback' };
