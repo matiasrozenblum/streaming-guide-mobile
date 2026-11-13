@@ -284,6 +284,22 @@ export const MobileVideoPlayer = () => {
                         target_service: item.service,
                         target_program: item.programName ?? null,
                         target_is_live: item.isLive,
+                        /**
+                         * Los ids canónicos, que el pipeline propio saca de
+                         * acá y lleva a sus columnas tipadas: sin ellos el
+                         * zapeo no se puede rankear, porque el resumen ordena
+                         * por id y no por nombre. Las claves `target_*` de
+                         * arriba quedan como están, que es sobre lo que ya
+                         * están armados los tableros.
+                         *
+                         * `ZapItem.id` es un id de canal o de streamer según
+                         * el tipo, nunca los dos.
+                         */
+                        ...(item.kind === 'streamer'
+                            ? { streamer_id: item.id, streamer_name: item.name }
+                            : { channel_id: item.id, channel_name: item.name }),
+                        program_id: item.programId ?? undefined,
+                        program_name: item.programName ?? undefined,
                     });
                 }}
             >

@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **La espera sobre un período ya abierto toma las fechas del servidor**, en lugar de recalcularlas: un domingo mostraba "2 — 6 de noviembre", que es la entrega del viernes, cuando la vigente ya llegaba al sábado. Y deja de nombrar el día cuando el día es hoy — "se completa hoy a las 22 hs" y no "el domingo", que se leía como el domingo que viene.
 - **Se va el contador de reproducciones de la pantalla de espera**. El mínimo de tres ya no existe —la única regla es el calendario— y el contador además mentía: de lunes a jueves prometía que unas reproducciones más llenaban una semana que ya había cerrado. En su lugar dice cuándo llega el próximo resumen y con qué días se arma, y el encabezado muestra esas fechas y no las del período cerrado que quedó atrás.
 
+### Changed
+
+- **El evento de zapeo manda los ids, para que cuente en el resumen.** Mandaba sólo nombres, y el resumen rankea por id: sin ellos no había con qué contarlo. Ahora viaja el id del canal o del streamer según el destino —nunca los dos— y el del programa al aire, que hubo que sumar al tipo porque la app no lo tenía. Las claves anteriores quedan como estaban, que es sobre lo que están armados los tableros. La web ya lo hacía.
+
 ### Fixed
 
 - **El menú de compartir ofrece las apps correctas.** Sugería Notas, Recordatorios y Freeform en lugar de WhatsApp, porque la vía anterior etiquetaba el archivo con un tipo propietario de WhatsApp (`net.whatsapp.image`) sobre un archivo escrito como `.jpg`: el tipo y la extensión no coincidían, iOS no podía resolverlo y caía en las apps que aceptan archivos genéricos. Yendo derecho al menú con el `.png` y su tipo real, iOS lo resuelve a `public.png` y aparecen las que reciben imágenes. Va también la placa sola, sin texto al lado: un paquete de dos piezas no lo toman completo todas las apps, y hay varias que se quedan con el texto y sueltan la imagen.
