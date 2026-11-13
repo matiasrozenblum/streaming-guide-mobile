@@ -1,4 +1,5 @@
 import { Linking, Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import * as MediaLibrary from 'expo-media-library';
 import Share, { Social } from 'react-native-share';
@@ -72,7 +73,55 @@ async function saveToCameraRoll(fileUri: string): Promise<ShareResult> {
 }
 
 /** Last resort: the OS sheet, which can always take a PNG somewhere. */
-async function systemSheet(fileUri: string): Promise<ShareResult> {
+/**
+ * Las acciones de iOS que no vienen al caso cuando alguien tocó el botón de
+ * una red social.
+ *
+ * No se puede elegir qué app va primera en el menú —ese orden lo decide iOS
+ * por uso reciente, y para una app recién instalada no tiene historial— pero
+ * sí se pueden sacar las del sistema. Sin ellas adelante, las que quedan en
+ * la fila son las que la persona fue a buscar: WhatsApp estaba, sólo que
+ * quinta o sexta y fuera de la vista.
+ */
+/**
+ * Con qué nombre viaja la placa cuando la toma el menú, y por qué no es un
+ * `.png`.
+ *
+ * Contra toda intuición, WhatsApp y X aparecen en el menú cuando iOS trata
+ * lo compartido como un archivo cualquiera, y desaparecen cuando lo trata
+ * como una imagen: con `.png` no figuran ni deslizando, con esta extensión
+ * están las dos. Sus extensiones se ofrecen para archivos y no para
+ * imágenes, al revés de lo que uno esperaría de apps que mandan fotos todo
+ * el día.
+ *
+ * El precio es que la lista también trae apps que aceptan cualquier cosa
+ * —Drive, Uber— pero entre tenerlas de más y que falten las dos que la
+ * persona fue a buscar, es preferible lo primero.
+ */
+const WHATSAPP_FILENAME = 'mi-resumen.wai';
+
+const SYSTEM_ACTIVITIES = [
+    'com.apple.UIKit.activity.AirDrop',
+    'com.apple.UIKit.activity.Mail',
+    'com.apple.UIKit.activity.Message',
+    'com.apple.UIKit.activity.AddToReadingList',
+    'com.apple.UIKit.activity.AssignToContact',
+    'com.apple.UIKit.activity.Print',
+    'com.apple.UIKit.activity.CopyToPasteboard',
+    'com.apple.UIKit.activity.MarkupAsPDF',
+    'com.apple.reminders.RemindersEditorExtension',
+    'com.apple.mobilenotes.SharingExtension',
+    'com.apple.freeform.ShareExtension',
+];
+
+async function systemSheet(
+    fileUri: string,
+    /**
+     * Con qué nombre viaja la placa. WhatsApp pide uno en particular, ver
+     * abajo; para el resto es un `.png` común.
+     */
+    filename = 'mi-resumen.png',
+): Promise<ShareResult> {
     try {
         /**
          * La placa sola, sin texto al lado.
@@ -84,9 +133,21 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
          * El texto tampoco hace falta: la placa ya lleva impreso de dónde
          * sale y la dirección del sitio.
          */
+        /**
+         * Los bytes, no la ruta — y la diferencia es cuáles apps ofrece iOS.
+         *
+         * Con una ruta el sistema entrega un archivo, y las extensiones de
+         * WhatsApp y X declaran que reciben imágenes (`public.image`), no
+         * archivos sueltos: quedaban afuera del menú y en su lugar salían
+         * Notas y Recordatorios, que toman cualquier cosa. Entregada como
+         * imagen entra en ese filtro.
+         */
+        const base64 = await new File(fileUri).base64();
         await Share.open({
-            url: fileUri,
+            url: `data:image/png;base64,${base64}`,
             type: 'image/png',
+            filename,
+            excludedActivityTypes: SYSTEM_ACTIVITIES,
             failOnCancel: false,
         });
         return { outcome: 'fallback' };
@@ -152,18 +213,18 @@ export async function sharePlaca(
          * WhatsApp sale por el menú del sistema, y no por una vuelta más
          * larga que termina en el mismo lugar.
          *
-         * Tiene una vía propia para archivos —el UTI `net.whatsapp.image`,
-         * por document interaction— y la usábamos. Funcionaba: el log del
-         * dispositivo muestra la entrega aceptada, sin un solo rechazo. Lo
-         * que pasa es que Apple reemplazó el viejo menú "Abrir en…" por el
-         * menú de compartir, así que ese camino desemboca ahí de todos modos,
+         * Tiene una vía propia —el UTI `net.whatsapp.image`, por document
+         * interaction— y la usábamos. Funcionaba: el log del dispositivo
+         * muestra la entrega aceptada, sin un solo rechazo. Lo que pasa es
+         * que Apple reemplazó el viejo menú "Abrir en…" por el menú de
+         * compartir, así que ese camino desemboca ahí de todos modos,
          * después de leer el archivo y copiarlo a un temporal para nada.
          *
-         * No queda otra vía: el esquema `whatsapp://` lleva texto y no
-         * archivos. Entregar una imagen a WhatsApp en iOS es el menú, y
+         * Tampoco queda otra puerta: el esquema `whatsapp://` lleva texto y
+         * no archivos. Entregar una imagen a WhatsApp en iOS es el menú, y
          * hacerlo explícito ahorra el rodeo y deja escrito por qué.
          */
-        if (target === 'whatsapp') return systemSheet(fileUri);
+        if (target === 'whatsapp') return systemSheet(fileUri, WHATSAPP_FILENAME);
 
         if (target === 'facebook' && FACEBOOK_APP_ID) {
             /**
@@ -193,7 +254,7 @@ export async function sharePlaca(
          * menú va la placa y las dos apps aparecen entre las opciones, que
          * es un toque más a cambio de mandar lo que se quería mandar.
          */
-        return systemSheet(fileUri);
+        return systemSheet(fileUri, WHATSAPP_FILENAME);
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
         /**
