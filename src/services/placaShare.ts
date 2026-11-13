@@ -31,15 +31,7 @@ export interface ShareResult {
 
 const FACEBOOK_APP_ID: string = Constants.expoConfig?.extra?.facebookAppId ?? '';
 
-const MESSAGE = 'Mi resumen en La Guía del Streaming';
 
-/**
- * Where a shared link lands: the section itself, which answers somebody
- * without an account with what it is and an invitation to open one.
- */
-const SHARE_URL: string = `${
-    Constants.expoConfig?.extra?.webUrl ?? 'https://laguiadelstreaming.com'
-}/mi-resumen`;
 
 /** How to tell whether a target app is on the phone, per platform. */
 const PRESENCE: Record<
@@ -77,24 +69,6 @@ async function saveToCameraRoll(fileUri: string): Promise<ShareResult> {
     if (!permission.granted) return { outcome: 'error', detail: 'permission denied' };
     await MediaLibrary.saveToLibraryAsync(fileUri);
     return { outcome: 'saved' };
-}
-
-/**
- * Where each network opens its composer, already filled in.
- *
- * Both are reached by the https links their apps claim, which is what works
- * after the rebrand left `twitter://post` unreliable. Facebook drops any text
- * we pass, by its own policy, so it gets the link alone.
- */
-function composerUrl(target: 'x' | 'facebook'): string {
-    if (target === 'x') {
-        return `https://x.com/intent/post?text=${encodeURIComponent(
-            MESSAGE,
-        )}&url=${encodeURIComponent(SHARE_URL)}`;
-    }
-    return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-        SHARE_URL,
-    )}`;
 }
 
 /** Last resort: the OS sheet, which can always take a PNG somewhere. */
@@ -136,10 +110,9 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  * - Facebook takes the placa as a story, the same handoff Instagram takes
  *   and against the same app id. Its feed would need Facebook's own SDK, and
  *   the sharer link only ever carries a url.
- * - X takes a link and a line of text and opens on its composer. It has no
- *   route for an image: its own module only ever builds `twitter://post` or
- *   the web intent, both of them text and url. The system sheet is the only
- *   way a picture reaches it.
+ * - X goes through the system sheet, where its own extension takes the
+ *   placa. It has no route of its own for an image: its module only ever
+ *   builds `twitter://post` or the web intent, both text and url.
  */
 export async function sharePlaca(
     target: ShareTarget,
@@ -210,8 +183,17 @@ export async function sharePlaca(
             return { outcome: 'shared' };
         }
 
-        await Linking.openURL(composerUrl(target));
-        return { outcome: 'shared' };
+        /**
+         * X y un Facebook sin app id salen por el menú, con la placa.
+         *
+         * Antes abrían su compositor con un enlace, que es directo pero deja
+         * la imagen afuera — y la imagen es el punto. Ninguno de los dos
+         * tiene una vía propia para recibirla: el módulo de X sólo arma
+         * `twitter://post` o el intent web, los dos con texto y url. Por el
+         * menú va la placa y las dos apps aparecen entre las opciones, que
+         * es un toque más a cambio de mandar lo que se quería mandar.
+         */
+        return systemSheet(fileUri);
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
         /**
