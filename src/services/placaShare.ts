@@ -100,6 +100,9 @@ async function saveToCameraRoll(fileUri: string): Promise<ShareResult> {
  */
 const WHATSAPP_FILENAME = 'mi-resumen.wai';
 
+/** Lo que acompaña al envío donde la app de destino muestra un texto. */
+const MESSAGE = 'Mi resumen en La Guía del Streaming';
+
 const SYSTEM_ACTIVITIES = [
     'com.apple.UIKit.activity.AirDrop',
     'com.apple.UIKit.activity.Mail',
@@ -142,14 +145,26 @@ async function systemSheet(
          * Notas y Recordatorios, que toman cualquier cosa. Entregada como
          * imagen entra en ese filtro.
          */
-        const base64 = await new File(fileUri).base64();
-        await Share.open({
-            url: `data:image/png;base64,${base64}`,
-            type: 'image/png',
-            filename,
-            excludedActivityTypes: SYSTEM_ACTIVITIES,
-            failOnCancel: false,
-        });
+        if (Platform.OS === 'ios') {
+            const base64 = await new File(fileUri).base64();
+            await Share.open({
+                url: `data:image/png;base64,${base64}`,
+                type: 'image/png',
+                filename,
+                excludedActivityTypes: SYSTEM_ACTIVITIES,
+                failOnCancel: false,
+            });
+        } else {
+            // Android se lleva la ruta y nada más: lo de arriba es para que
+            // iOS ofrezca las apps correctas, y acá sólo sirve para romperlo
+            // —un nombre con extensión que Android no conoce no tiene a qué
+            // aplicación ofrecérselo—.
+            await Share.open({
+                url: fileUri,
+                type: 'image/png',
+                failOnCancel: false,
+            });
+        }
         return { outcome: 'fallback' };
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
@@ -224,7 +239,20 @@ export async function sharePlaca(
          * no archivos. Entregar una imagen a WhatsApp en iOS es el menú, y
          * hacerlo explícito ahorra el rodeo y deja escrito por qué.
          */
-        if (target === 'whatsapp') return systemSheet(fileUri, WHATSAPP_FILENAME);
+        if (target === 'whatsapp') {
+            if (Platform.OS !== 'ios') {
+                // En Android el intent se dirige a una app concreta, así que
+                // la placa le llega a WhatsApp sin pasar por ningún menú.
+                await Share.shareSingle({
+                    social: Social.Whatsapp,
+                    url: fileUri,
+                    type: 'image/png',
+                    message: MESSAGE,
+                });
+                return { outcome: 'shared' };
+            }
+            return systemSheet(fileUri, WHATSAPP_FILENAME);
+        }
 
         if (target === 'facebook' && FACEBOOK_APP_ID) {
             /**
@@ -254,6 +282,15 @@ export async function sharePlaca(
          * menú va la placa y las dos apps aparecen entre las opciones, que
          * es un toque más a cambio de mandar lo que se quería mandar.
          */
+        if (Platform.OS !== 'ios') {
+            await Share.shareSingle({
+                social: Social.Twitter,
+                url: fileUri,
+                type: 'image/png',
+                message: MESSAGE,
+            });
+            return { outcome: 'shared' };
+        }
         return systemSheet(fileUri, WHATSAPP_FILENAME);
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
