@@ -44,7 +44,17 @@ const getWebUrl = () => {
 
 /** The apps the share sheet is allowed to look for and hand a placa to. */
 const SHARE_TARGETS = {
-    ios: ['instagram', 'instagram-stories', 'whatsapp', 'twitter', 'fb'],
+    // `facebook-stories` va aparte de `fb`: es el esquema por el que se le
+    // entrega la placa como historia, y sin declararlo iOS responde que no
+    // está instalada aunque lo esté.
+    ios: [
+        'instagram',
+        'instagram-stories',
+        'whatsapp',
+        'twitter',
+        'fb',
+        'facebook-stories',
+    ],
     android: [
         'com.instagram.android',
         'com.whatsapp',
@@ -243,7 +253,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                 {
                     savePhotosPermission:
                         "Para guardar en tu carrete las placas de Mi resumen que elijas descargar.",
-                    isAccessMediaLocationEnabled: false
+                    isAccessMediaLocationEnabled: false,
+                    // Solo escribimos una placa en el carrete, nunca leemos la
+                    // galeria: `requestPermissionsAsync(true)` es write-only y el
+                    // modulo nativo deja las READ_MEDIA_* afuera del pedido en ese
+                    // modo. El plugin igual las declaraba —foto, video y audio, por
+                    // defecto— y Google Play pide justificar un acceso amplio que la
+                    // app no ejerce. La lista vacia las saca del manifest; las
+                    // *_EXTERNAL_STORAGE, que si hacen falta hasta Android 12, las
+                    // declara el manifest propio de la libreria.
+                    granularPermissions: []
                 }
             ]
         ]

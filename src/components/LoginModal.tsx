@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Modal, Portal, Text, IconButton, useTheme } from 'react-native-paper';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -29,13 +29,19 @@ const ALL_STEPS: Record<'new' | 'existing', StepKey[]> = {
 
 export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   const { login } = useAuth();
-  const { pendingAction, clearPendingAction } = useLoginModal();
+  const { pendingAction, clearPendingAction, entry } = useLoginModal();
   const theme = useTheme();
 
   // State
   const [step, setStep] = useState<StepKey>('email');
   const [isUserExisting, setIsUserExisting] = useState(false);
   const [phase, setPhase] = useState<'email' | 'flow'>('email');
+  /**
+   * The last step is done when the password is accepted, not when it is shown.
+   * Without this the bar would be full while the form is still empty, and the
+   * one moment the sign-up is actually finished would have nothing to show.
+   */
+  const [flowComplete, setFlowComplete] = useState(false);
   const [authOrigin, setAuthOrigin] = useState<'traditional' | 'apple' | 'google'>('traditional');
 
   // Data
@@ -73,6 +79,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
     setGender('');
     setError('');
     setLoading(false);
+    setFlowComplete(false);
     clearPendingAction();
   };
 
@@ -96,7 +103,11 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
   // --- Auth success helper ---
   // Called after every successful login/register. Executes any pending action
   // (e.g. subscribe to a program) that was queued before the user authenticated.
-  const handleAuthSuccess = async (accessToken: string, refreshToken: string) => {
+  const handleAuthSuccess = async (
+    accessToken: string,
+    refreshToken: string,
+    holdFor?: Promise<unknown>,
+  ) => {
     await login(accessToken, refreshToken);
     if (pendingAction) {
       try {
@@ -106,10 +117,69 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       }
       clearPendingAction();
     }
+    // Runs alongside the work above rather than after it, so whatever the
+    // caller wants seen gets its moment without anybody waiting twice.
+    if (holdFor) await holdFor;
     handleClose();
   };
 
   // --- Handlers ---
+
+  /**
+   * A screen that already has an e-mail field hands it over here, so the
+   * reader is not asked for the same thing twice. Guarded by a ref: the
+   * effect must fire once per opening and not on every re-render of a flow
+   * that is already under way.
+   */
+  const handedOver = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      handedOver.current = false;
+      return;
+    }
+    if (handedOver.current) return;
+
+    if (entry.initialEmail) {
+      handedOver.current = true;
+      setEmail(entry.initialEmail);
+      void handleEmailSubmit(entry.initialEmail);
+    } else if (entry.social === 'google') {
+      handedOver.current = true;
+      void handleGoogleLogin();
+    } else if (entry.social === 'apple') {
+      handedOver.current = true;
+      void handleAppleLogin();
+    }
+    // The handlers are recreated on every render; the ref is what keeps this
+    // from running twice, so they are deliberately not dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, entry]);
+
+  /**
+   * Back to the e-mail step with the address still in hand — what "Cambiar
+   * correo" means, and where the header arrow goes from the first step.
+   */
+  const returnToEmail = () => {
+    setError('');
+    setCode('');
+    setStep('email');
+    setPhase('email');
+  };
+
+  /** One step back, along the same path each step's own button takes. */
+  const goBack = () => {
+    setError('');
+    const index = currentSteps.indexOf(step);
+    if (index <= 0) return returnToEmail();
+    /**
+     * Landing on the e-mail step means leaving the flow, not just moving the
+     * cursor: the e-mail field renders in the other phase, so setting the step
+     * alone left the panel with nothing in it.
+     */
+    const previous = currentSteps[index - 1];
+    if (previous === 'email') return returnToEmail();
+    setStep(previous);
+  };
 
   const handleEmailSubmit = async (e: string) => {
     setEmail(e);
@@ -350,8 +420,16 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       });
 
       trackEvent('signup_success', { method: 'traditional' });
-      await handleAuthSuccess(response.access_token, response.refresh_token);
+      // Here is where the sign-up is finished, which is the one place the bar
+      // has to reach the end.
+      setFlowComplete(true);
+      await handleAuthSuccess(
+        response.access_token,
+        response.refresh_token,
+        new Promise((r) => setTimeout(r, 420)),
+      );
     } catch (err: any) {
+      setFlowComplete(false);
       setError('Error al registrarse.');
       trackEvent('signup_error', { error: err.message || 'unknown', method: 'traditional' });
     } finally {
@@ -406,6 +484,7 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
             email={email}
             initialCode={code}
             onSubmit={handleCodeSubmit}
+            onChangeEmail={returnToEmail}
             onBack={() => {
               if (phase === 'flow' && !isUserExisting) {
                 setStep('email');
@@ -469,17 +548,43 @@ export const LoginModal = ({ visible, onDismiss }: LoginModalProps) => {
       <Modal
         visible={visible}
         onDismiss={handleClose}
-        contentContainerStyle={[styles.modal, { backgroundColor: '#0F172A' }]}
+        contentContainerStyle={[
+          entry.panel ? styles.panel : styles.modal,
+          { backgroundColor: entry.panel ? '#141C30' : '#0F172A' },
+        ]}
       >
         <View style={styles.header}>
+          {/* A way back that is not the way out: the cross closes the whole
+              thing, which is not what somebody who mistyped their e-mail
+              wants. Only once there is a step to go back to. */}
+          {phase === 'flow' && (
+            <IconButton
+              icon="arrow-left"
+              onPress={goBack}
+              accessibilityLabel="Volver"
+              style={styles.backButton}
+            />
+          )}
           <Text variant="titleLarge" style={styles.title}>{getTitle()}</Text>
           <IconButton icon="close" onPress={handleClose} style={styles.closeButton} />
         </View>
 
-        {phase === 'flow' && (
-          <Stepper currentStep={step} steps={currentSteps} isLoading={loading} />
+        {phase === 'flow' && !isUserExisting && (
+          <Stepper
+            style={styles.stepper}
+            currentStep={step}
+            steps={currentSteps}
+            complete={flowComplete}
+            isLoading={loading}
+          />
         )}
 
+        {/* No `flex: 1` on either of these. Claiming the height here is what
+            would let a step pin its button to the bottom edge, but inside the
+            modal of react-native-paper that nesting collapses on iOS and takes
+            the whole form with it — the panel renders as an empty box under
+            the title. Android survives it, which is why it took a device to
+            see. The button sits under the content instead. */}
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0} // Adjust based on header height
@@ -500,6 +605,28 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     maxHeight: '90%',
   },
+  /**
+   * For a screen whose own panel is what opened this: hinged to the bottom
+   * edge, full height, same corners. It reads as that panel growing rather
+   * than as a card appearing over it.
+   */
+  panel: {
+    /**
+     * Explicit, because the two platforms disagreed without it: the content
+     * does not claim the panel's height —that nesting collapses the form on
+     * iOS— so Android was centring it and leaving a hole above the header
+     * while iOS started at the top. The form belongs at the top on both.
+     */
+    justifyContent: 'flex-start',
+    marginTop: 60,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -512,8 +639,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
   },
+  backButton: {
+    margin: 0,
+    marginLeft: -8,
+  },
   closeButton: {
     margin: 0,
+  },
+  stepper: {
+    paddingHorizontal: 24,
+    // Room under the bar: the first line of every step was landing on it.
+    paddingBottom: 16,
   },
   scrollContent: {
     paddingHorizontal: 24,

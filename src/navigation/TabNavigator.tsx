@@ -7,7 +7,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StreamersScreen } from '../screens/StreamersScreen';
 import { RecapScreen } from '../screens/RecapScreen';
-import { useAuth } from '../context/AuthContext';
 import { getTheme } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -15,7 +14,6 @@ const Tab = createBottomTabNavigator();
 export const TabNavigator = () => {
     const theme = getTheme('dark');
     const insets = useSafeAreaInsets();
-    const { isAuthenticated } = useAuth();
 
     // Set Android system navigation bar to match app theme
     useEffect(() => {
@@ -83,19 +81,19 @@ export const TabNavigator = () => {
                     ),
                 }}
             />
-            {/* The recap is about the signed-in person, so there is nothing to
-                show a visitor — the same rule the website's nav follows. */}
-            {isAuthenticated && (
-                <Tab.Screen
-                    name="Mi resumen"
-                    component={RecapScreen}
-                    options={{
-                        tabBarIcon: ({ color }) => (
-                            <MaterialIcons name="auto-awesome" size={30} color={color} />
-                        ),
-                    }}
-                />
-            )}
+            {/* Shown to everybody. A visitor who opens it gets the pitch and a
+                way in, which is the point: the recap is the best reason to
+                open an account, and hiding it kept that from the people who
+                had not opened one. */}
+            <Tab.Screen
+                name="Mi resumen"
+                component={RecapScreen}
+                options={{
+                    tabBarIcon: ({ color }) => (
+                        <MaterialIcons name="auto-awesome" size={30} color={color} />
+                    ),
+                }}
+            />
         </Tab.Navigator>
     );
 };

@@ -7,7 +7,8 @@ interface ExistingUserStepProps {
     firstName?: string;
     gender?: string;
     onSubmit: (password: string) => void;
-    onBack: () => void;
+    /** Kept for the callers; the header arrow is what goes back now. */
+    onBack?: () => void;
     isLoading: boolean;
     error?: string;
     onForgotPassword: () => void;
@@ -18,7 +19,6 @@ export const ExistingUserStep = ({
     firstName,
     gender,
     onSubmit,
-    onBack,
     isLoading,
     error,
     onForgotPassword
@@ -92,16 +92,6 @@ export const ExistingUserStep = ({
 
             >
                 Iniciar sesión
-            </Button>
-
-            <Button
-                mode="outlined"
-                onPress={onBack}
-                disabled={isLoading}
-                style={[styles.button, styles.cancelButton]}
-                icon="arrow-left"
-            >
-                Volver
             </Button>
 
             <TouchableOpacity onPress={onForgotPassword} disabled={isLoading} style={styles.forgotButton}>

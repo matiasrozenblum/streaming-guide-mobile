@@ -1,4 +1,5 @@
 import { Linking, Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import * as MediaLibrary from 'expo-media-library';
 import Share, { Social } from 'react-native-share';
@@ -31,7 +32,7 @@ export interface ShareResult {
 
 const FACEBOOK_APP_ID: string = Constants.expoConfig?.extra?.facebookAppId ?? '';
 
-const MESSAGE = 'Mi resumen en La Guía del Streaming';
+
 
 /** How to tell whether a target app is on the phone, per platform. */
 const PRESENCE: Record<
@@ -72,14 +73,98 @@ async function saveToCameraRoll(fileUri: string): Promise<ShareResult> {
 }
 
 /** Last resort: the OS sheet, which can always take a PNG somewhere. */
-async function systemSheet(fileUri: string): Promise<ShareResult> {
+/**
+ * Las acciones de iOS que no vienen al caso cuando alguien tocó el botón de
+ * una red social.
+ *
+ * No se puede elegir qué app va primera en el menú —ese orden lo decide iOS
+ * por uso reciente, y para una app recién instalada no tiene historial— pero
+ * sí se pueden sacar las del sistema. Sin ellas adelante, las que quedan en
+ * la fila son las que la persona fue a buscar: WhatsApp estaba, sólo que
+ * quinta o sexta y fuera de la vista.
+ */
+/**
+ * Con qué nombre viaja la placa cuando la toma el menú, y por qué no es un
+ * `.png`.
+ *
+ * Contra toda intuición, WhatsApp y X aparecen en el menú cuando iOS trata
+ * lo compartido como un archivo cualquiera, y desaparecen cuando lo trata
+ * como una imagen: con `.png` no figuran ni deslizando, con esta extensión
+ * están las dos. Sus extensiones se ofrecen para archivos y no para
+ * imágenes, al revés de lo que uno esperaría de apps que mandan fotos todo
+ * el día.
+ *
+ * El precio es que la lista también trae apps que aceptan cualquier cosa
+ * —Drive, Uber— pero entre tenerlas de más y que falten las dos que la
+ * persona fue a buscar, es preferible lo primero.
+ */
+const WHATSAPP_FILENAME = 'mi-resumen.wai';
+
+/** Lo que acompaña al envío donde la app de destino muestra un texto. */
+const MESSAGE = 'Mi resumen en La Guía del Streaming';
+
+const SYSTEM_ACTIVITIES = [
+    'com.apple.UIKit.activity.AirDrop',
+    'com.apple.UIKit.activity.Mail',
+    'com.apple.UIKit.activity.Message',
+    'com.apple.UIKit.activity.AddToReadingList',
+    'com.apple.UIKit.activity.AssignToContact',
+    'com.apple.UIKit.activity.Print',
+    'com.apple.UIKit.activity.CopyToPasteboard',
+    'com.apple.UIKit.activity.MarkupAsPDF',
+    'com.apple.reminders.RemindersEditorExtension',
+    'com.apple.mobilenotes.SharingExtension',
+    'com.apple.freeform.ShareExtension',
+];
+
+async function systemSheet(
+    fileUri: string,
+    /**
+     * Con qué nombre viaja la placa. WhatsApp pide uno en particular, ver
+     * abajo; para el resto es un `.png` común.
+     */
+    filename = 'mi-resumen.png',
+): Promise<ShareResult> {
     try {
-        await Share.open({
-            url: fileUri,
-            type: 'image/png',
-            message: MESSAGE,
-            failOnCancel: false,
-        });
+        /**
+         * La placa sola, sin texto al lado.
+         *
+         * Mandar los dos arma un paquete de dos piezas, y no todas las apps
+         * toman las dos: algunas se quedan con el texto y sueltan la imagen,
+         * que es justo lo que no queremos. Con una sola pieza iOS resuelve el
+         * `.png` a `public.png` y ofrece las apps que reciben imágenes.
+         * El texto tampoco hace falta: la placa ya lleva impreso de dónde
+         * sale y la dirección del sitio.
+         */
+        /**
+         * Los bytes, no la ruta — y la diferencia es cuáles apps ofrece iOS.
+         *
+         * Con una ruta el sistema entrega un archivo, y las extensiones de
+         * WhatsApp y X declaran que reciben imágenes (`public.image`), no
+         * archivos sueltos: quedaban afuera del menú y en su lugar salían
+         * Notas y Recordatorios, que toman cualquier cosa. Entregada como
+         * imagen entra en ese filtro.
+         */
+        if (Platform.OS === 'ios') {
+            const base64 = await new File(fileUri).base64();
+            await Share.open({
+                url: `data:image/png;base64,${base64}`,
+                type: 'image/png',
+                filename,
+                excludedActivityTypes: SYSTEM_ACTIVITIES,
+                failOnCancel: false,
+            });
+        } else {
+            // Android se lleva la ruta y nada más: lo de arriba es para que
+            // iOS ofrezca las apps correctas, y acá sólo sirve para romperlo
+            // —un nombre con extensión que Android no conoce no tiene a qué
+            // aplicación ofrecérselo—.
+            await Share.open({
+                url: fileUri,
+                type: 'image/png',
+                failOnCancel: false,
+            });
+        }
         return { outcome: 'fallback' };
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
@@ -95,7 +180,15 @@ async function systemSheet(fileUri: string): Promise<ShareResult> {
  *
  * - Instagram takes a Stories handoff, but only against a registered Facebook
  *   app id. Without one it is the system sheet or nothing.
- * - WhatsApp, X and Facebook take an image through their own share intent.
+ * - WhatsApp gets the system sheet. It registers a route for files of its
+ *   own, and that route works — but Apple turned the "Open in…" menu it used
+ *   into the share sheet, so it lands there anyway. See below.
+ * - Facebook takes the placa as a story, the same handoff Instagram takes
+ *   and against the same app id. Its feed would need Facebook's own SDK, and
+ *   the sharer link only ever carries a url.
+ * - X goes through the system sheet, where its own extension takes the
+ *   placa. It has no route of its own for an image: its module only ever
+ *   builds `twitter://post` or the web intent, both text and url.
  */
 export async function sharePlaca(
     target: ShareTarget,
@@ -109,7 +202,14 @@ export async function sharePlaca(
         }
     }
 
-    if (!(await isInstalled(target))) return { outcome: 'missing' };
+    // Only WhatsApp needs to be there for its route to work. X and Facebook
+    // are opened by https links their apps claim: with the app installed it
+    // opens, without it the browser does — either way something happens,
+    // which beats the dead end this check used to produce for X, whose
+    // `twitter://` scheme iOS never answered for us.
+    if (target === 'whatsapp' && !(await isInstalled(target))) {
+        return { outcome: 'missing' };
+    }
 
     try {
         if (target === 'instagram') {
@@ -124,24 +224,83 @@ export async function sharePlaca(
             return { outcome: 'shared' };
         }
 
-        const social =
-            target === 'whatsapp'
-                ? Social.Whatsapp
-                : target === 'x'
-                  ? Social.Twitter
-                  : Social.Facebook;
+        /**
+         * WhatsApp sale por el menú del sistema, y no por una vuelta más
+         * larga que termina en el mismo lugar.
+         *
+         * Tiene una vía propia —el UTI `net.whatsapp.image`, por document
+         * interaction— y la usábamos. Funcionaba: el log del dispositivo
+         * muestra la entrega aceptada, sin un solo rechazo. Lo que pasa es
+         * que Apple reemplazó el viejo menú "Abrir en…" por el menú de
+         * compartir, así que ese camino desemboca ahí de todos modos,
+         * después de leer el archivo y copiarlo a un temporal para nada.
+         *
+         * Tampoco queda otra puerta: el esquema `whatsapp://` lleva texto y
+         * no archivos. Entregar una imagen a WhatsApp en iOS es el menú, y
+         * hacerlo explícito ahorra el rodeo y deja escrito por qué.
+         */
+        if (target === 'whatsapp') {
+            if (Platform.OS !== 'ios') {
+                // En Android el intent se dirige a una app concreta, así que
+                // la placa le llega a WhatsApp sin pasar por ningún menú.
+                await Share.shareSingle({
+                    social: Social.Whatsapp,
+                    url: fileUri,
+                    type: 'image/png',
+                    message: MESSAGE,
+                });
+                return { outcome: 'shared' };
+            }
+            return systemSheet(fileUri, WHATSAPP_FILENAME);
+        }
 
-        await Share.shareSingle({
-            social,
-            url: fileUri,
-            type: 'image/png',
-            filename: 'mi-resumen',
-            message: MESSAGE,
-        });
-        return { outcome: 'shared' };
+        if (target === 'facebook' && FACEBOOK_APP_ID) {
+            /**
+             * A Facebook story, the same handoff Instagram takes and against
+             * the same app id. It is the one route that carries the placa
+             * itself: the sharer link carries a url and the feed would need
+             * Facebook's SDK. Stories is where this belongs anyway — it is
+             * what the placa is shaped like.
+             */
+            await Share.shareSingle({
+                social: Social.FacebookStories,
+                appId: FACEBOOK_APP_ID,
+                backgroundImage: fileUri,
+                backgroundBottomColor: '#0F172A',
+                backgroundTopColor: '#0F172A',
+            });
+            return { outcome: 'shared' };
+        }
+
+        /**
+         * X y un Facebook sin app id salen por el menú, con la placa.
+         *
+         * Antes abrían su compositor con un enlace, que es directo pero deja
+         * la imagen afuera — y la imagen es el punto. Ninguno de los dos
+         * tiene una vía propia para recibirla: el módulo de X sólo arma
+         * `twitter://post` o el intent web, los dos con texto y url. Por el
+         * menú va la placa y las dos apps aparecen entre las opciones, que
+         * es un toque más a cambio de mandar lo que se quería mandar.
+         */
+        if (Platform.OS !== 'ios') {
+            await Share.shareSingle({
+                social: Social.Twitter,
+                url: fileUri,
+                type: 'image/png',
+                message: MESSAGE,
+            });
+            return { outcome: 'shared' };
+        }
+        return systemSheet(fileUri, WHATSAPP_FILENAME);
     } catch (error) {
         if (isCancellation(error)) return { outcome: 'cancelled' };
-        // The app is there but would not take the handoff: the sheet still can.
+        /**
+         * The app is there but would not take the handoff: the sheet still
+         * can. Logged because that refusal is the interesting part — this is
+         * how WhatsApp ended up opening the system sheet, and the reason was
+         * never written down anywhere.
+         */
+        console.warn('[Compartir] la entrega directa falló', target, error);
         return systemSheet(fileUri);
     }
 }

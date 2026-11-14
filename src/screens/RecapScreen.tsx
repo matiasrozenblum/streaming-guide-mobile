@@ -10,6 +10,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Header } from '../components/Header';
 import { EmptyRecap } from '../components/recap/EmptyRecap';
+import { RecapSignedOut } from '../components/recap/RecapSignedOut';
+import { RecapStatusPill } from '../components/recap/RecapStatusPill';
+import { recapWaiting } from '../utils/recapSchedule';
 import { PeriodSwitch } from '../components/recap/PeriodSwitch';
 import { PLACA_RATIO, PlacaCarousel, Slide } from '../components/recap/PlacaCarousel';
 import { ShareRow } from '../components/recap/ShareRow';
@@ -101,8 +104,28 @@ export const RecapScreen = () => {
         [recap],
     );
 
+    const accessToken = session?.accessToken;
+
+    /**
+     * Keyed on the token as well as the period, because this screen is mounted
+     * while the visitor is still being shown the pitch: without the token in
+     * the dependencies the request went out unauthenticated, came back 401 and
+     * left its error behind, and finishing the sign-up never asked again —
+     * somebody who had just created an account was greeted with "no pudimos
+     * traer tu resumen" until they left the tab and came back.
+     */
     useEffect(() => {
         let cancelled = false;
+
+        // Nothing to ask for yet, and nothing to show: the pitch is what
+        // renders in this state.
+        if (!accessToken) {
+            setRecap(null);
+            setError(null);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         setError(null);
         setCurrent(0);
@@ -121,7 +144,7 @@ export const RecapScreen = () => {
         return () => {
             cancelled = true;
         };
-    }, [period]);
+    }, [period, accessToken]);
 
     /**
      * The placas are downloaded as soon as the recap lands, one at a time.
@@ -132,7 +155,6 @@ export const RecapScreen = () => {
      * is then instant rather than a spinner.
      */
     useEffect(() => {
-        const accessToken = session?.accessToken;
         if (!recap?.enough_data || !accessToken || kinds.length === 0) return;
         let cancelled = false;
 
@@ -140,7 +162,13 @@ export const RecapScreen = () => {
             for (const kind of kinds) {
                 if (cancelled) return;
                 const key = `${period}:${recap.period.from}:${recap.period.to}:${kind}`;
-                if (files[key]) continue;
+                /**
+                 * Asked every time, even for one we remember downloading: the
+                 * service returns the cached file's uri without touching the
+                 * network when it is still on disk, and if something removed
+                 * it underneath us this is what notices. Remembering a uri is
+                 * not the same as the file being there.
+                 */
                 try {
                     const uri = await RecapService.downloadPlaca({
                         period,
@@ -160,9 +188,9 @@ export const RecapScreen = () => {
             cancelled = true;
         };
         // `files` is deliberately out: it changes on every download and would
-        // restart the loop. The `files[key]` check inside is only a shortcut.
+        // restart the loop, and the service already short-circuits on disk.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [recap, kinds, period, session?.accessToken]);
+    }, [recap, kinds, period, accessToken]);
 
     const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
@@ -220,6 +248,11 @@ export const RecapScreen = () => {
     );
 
     const body = () => {
+        // A visitor has no recap to load: the pitch is the screen.
+        if (!session) {
+            return <RecapSignedOut />;
+        }
+
         if (loading) {
             return (
                 <View style={styles.centered}>
@@ -317,15 +350,32 @@ export const RecapScreen = () => {
         >
             <Header />
 
-            <View style={styles.titleRow}>
+            {/* A visitor gets the pitch, not a section header for a recap
+                they do not have yet. */}
+            {session && <View style={styles.titleRow}>
                 <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Mi resumen</Text>
-                <PeriodSwitch value={period} onChange={setPeriod} disabled={loading} />
+                {/* Nothing to switch between without a recap behind it. */}
+                {session && (
+                    <PeriodSwitch value={period} onChange={setPeriod} disabled={loading} />
+                )}
                 {recap && (
                     <Text style={[styles.range, { color: theme.colors.textSecondary }]}>
-                        {rangeLabel(recap)}
+                        {/* While there is nothing to show, the dates are the
+                            ones the next recap will cover: the period the API
+                            hands back is the closed one behind us, and printing
+                            it under "tu primer resumen llega el viernes" would
+                            date the promise to a week already gone. */}
+                        {recap.enough_data
+                            ? rangeLabel(recap)
+                            : recapWaiting(
+                                  recap.period.type === 'month' ? 'month' : 'week',
+                                  recap.period,
+                              ).rangeLabel}
                     </Text>
                 )}
-            </View>
+            </View>}
+
+            {session && recap?.enough_data && <RecapStatusPill range={recap.period} />}
 
             <View
                 style={styles.body}

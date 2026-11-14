@@ -5,16 +5,23 @@ import { authApi } from '../../../services/api';
 
 interface CodeStepProps {
     email: string;
+    /**
+     * Going back to fix a typo in the address. Offered right under it: that is
+     * where somebody is looking when they notice it, and a way out at the
+     * other end of the screen is not an answer.
+     */
+    onChangeEmail?: () => void;
     initialCode?: string;
     onSubmit: (code: string) => void;
-    onBack: () => void;
+    /** Kept for the callers; the header arrow is what goes back now. */
+    onBack?: () => void;
     isLoading: boolean;
     error?: string;
 }
 
 const OTP_LENGTH = 6;
 
-export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading, error }: CodeStepProps) => {
+export const CodeStep = ({ email, onChangeEmail, initialCode = '', onSubmit, isLoading, error }: CodeStepProps) => {
     const [digits, setDigits] = useState<string[]>(() => {
         const arr = initialCode.split('').slice(0, OTP_LENGTH);
         while (arr.length < OTP_LENGTH) arr.push('');
@@ -112,10 +119,25 @@ export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading,
 
     return (
         <View style={styles.container}>
-            <Text style={[styles.subtitle, { color: theme.colors.secondary }]}>
+            <Text style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
                 Ingresá el código que recibiste en{' '}
                 <Text style={{ fontWeight: 'bold', color: theme.colors.onSurface }}>{email}</Text>
             </Text>
+
+            {onChangeEmail && (
+                <Button
+                    mode="text"
+                    icon="pencil-outline"
+                    compact
+                    onPress={onChangeEmail}
+                    disabled={isLoading}
+                    textColor="#60A5FA"
+                    style={styles.changeEmail}
+                    labelStyle={styles.changeEmailLabel}
+                >
+                    Cambiar correo
+                </Button>
+            )}
 
             <View style={styles.otpContainer}>
                 {digits.map((digit, index) => (
@@ -149,14 +171,6 @@ export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading,
                 </HelperText>
             ) : null}
 
-            <View style={styles.resendContainer}>
-                <TouchableOpacity onPress={canResend ? handleResend : undefined} disabled={!canResend}>
-                    <Text style={{ color: canResend ? theme.colors.primary : theme.colors.onSurfaceDisabled ?? theme.colors.outline }}>
-                        {canResend ? 'Reenviar código' : `Reenviar en ${countdown}s`}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
             <Button
                 mode="contained"
                 onPress={handleSubmit}
@@ -167,20 +181,26 @@ export const CodeStep = ({ email, initialCode = '', onSubmit, onBack, isLoading,
                 Verificar
             </Button>
 
-            <Button
-                mode="outlined"
-                onPress={onBack}
-                disabled={isLoading}
-                style={styles.backButton}
-                icon="arrow-left"
-            >
-                Volver
-            </Button>
+            <View style={styles.resendContainer}>
+                <TouchableOpacity onPress={canResend ? handleResend : undefined} disabled={!canResend}>
+                    <Text style={{ color: canResend ? theme.colors.primary : theme.colors.onSurfaceDisabled ?? theme.colors.outline }}>
+                        {canResend ? 'Reenviar código' : `Reenviar código en ${countdown}s`}
+                    </Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
+    changeEmail: {
+        alignSelf: 'center',
+        marginTop: -8,
+    },
+    changeEmailLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
     container: {
         gap: 16,
     },
@@ -204,7 +224,7 @@ const styles = StyleSheet.create({
     },
     resendContainer: {
         alignItems: 'center',
-        marginBottom: 8,
+        marginTop: -8,
     },
     button: {
         borderRadius: 6,

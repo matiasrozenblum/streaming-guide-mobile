@@ -1,7 +1,6 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { useTheme, Text } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { useTheme } from 'react-native-paper';
 
 // Step keys matching the web logic
 export type StepKey = 'email' | 'code' | 'profile' | 'password' | 'existing-user';
@@ -9,16 +8,12 @@ export type StepKey = 'email' | 'code' | 'profile' | 'password' | 'existing-user
 interface StepperProps {
     currentStep: StepKey;
     steps: StepKey[];
+    /** The sign-up finished: the last quarter belongs to the password being accepted. */
+    complete?: boolean;
     isLoading?: boolean;
+    /** The host decides the inset, so the bar lines up with what it measures. */
+    style?: StyleProp<ViewStyle>;
 }
-
-const STEP_ICONS: Record<StepKey, string> = {
-    email: 'email-outline',
-    code: 'key-outline',
-    profile: 'account-outline',
-    password: 'lock-outline',
-    'existing-user': 'login',
-};
 
 const STEP_LABELS: Record<StepKey, string> = {
     email: 'Correo',
@@ -28,113 +23,83 @@ const STEP_LABELS: Record<StepKey, string> = {
     'existing-user': 'Acceso',
 };
 
-export const Stepper = ({ currentStep, steps }: StepperProps) => {
+/**
+ * One bar that fills, in place of circles with icons, labels and connectors.
+ *
+ * That one needed width a 390px screen does not have — the labels wrapped and
+ * the circles crowded. The line of text that replaced them ("Paso 2 de 4 ·
+ * Verificar") went too: nobody reads it as anything but paperwork, and the
+ * header right above it already says which step this is. What the bar adds is
+ * the part the header cannot show, which is how much is left. The count is
+ * announced rather than drawn, so a screen reader still gets the sentence.
+ *
+ * It measures the steps behind you, not the one you are standing on: the
+ * password screen is three quarters of the way, and `complete` closes it —
+ * the sign-up is finished when the password is accepted, not when the form
+ * is shown.
+ */
+export const Stepper = ({ currentStep, steps, complete = false, style }: StepperProps) => {
     const theme = useTheme();
-    const activeIndex = steps.indexOf(currentStep);
+    const activeIndex = Math.max(0, steps.indexOf(currentStep));
+    const done = complete ? steps.length : activeIndex;
+    const value = steps.length ? done / steps.length : 0;
+
+    const progress = useRef(new Animated.Value(value)).current;
+    useEffect(() => {
+        Animated.timing(progress, {
+            toValue: value,
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+            // Width is a layout property; the native driver cannot carry it.
+            useNativeDriver: false,
+        }).start();
+    }, [value, progress]);
 
     return (
-        <View style={styles.container}>
-            {steps.map((step, index) => {
-                const isActive = index === activeIndex;
-                const isCompleted = index < activeIndex;
-                const isLast = index === steps.length - 1;
-                const isHighlighted = isActive || isCompleted;
-
-                return (
-                    <View key={step} style={styles.stepWrapper}>
-                        <View style={styles.iconContainer}>
-                            {!isLast && (
-                                <View
-                                    style={[
-                                        styles.connector,
-                                        {
-                                            backgroundColor: isCompleted
-                                                ? theme.colors.primary
-                                                : theme.colors.surfaceVariant,
-                                        },
-                                    ]}
-                                />
-                            )}
-                            <View
-                                style={[
-                                    styles.iconCircle,
-                                    {
-                                        backgroundColor: isHighlighted
-                                            ? theme.colors.primary
-                                            : 'transparent',
-                                        borderColor: isHighlighted
-                                            ? theme.colors.primary
-                                            : theme.colors.surfaceVariant,
-                                    },
-                                ]}
-                            >
-                                <Icon
-                                    name={STEP_ICONS[step]}
-                                    size={18}
-                                    color={isHighlighted ? '#FFFFFF' : theme.colors.onSurfaceDisabled ?? '#666'}
-                                />
-                            </View>
-                        </View>
-                        <Text
-                            variant="labelMedium"
-                            style={[
-                                styles.label,
-                                {
-                                    color: isHighlighted
-                                        ? theme.colors.primary
-                                        : theme.colors.onSurfaceDisabled ?? '#666',
-                                },
-                            ]}
-                            numberOfLines={1}
-                        >
-                            {STEP_LABELS[step]}
-                        </Text>
-                    </View>
-                );
-            })}
+        <View
+            style={[styles.container, style]}
+            accessibilityRole="progressbar"
+            accessibilityValue={{
+                min: 0,
+                max: steps.length,
+                now: done,
+                text: complete
+                    ? 'Listo'
+                    : `Paso ${activeIndex + 1} de ${steps.length}: ${
+                          STEP_LABELS[steps[activeIndex] ?? steps[0]]
+                      }`,
+            }}
+        >
+            <View style={styles.track}>
+                <Animated.View
+                    style={[
+                        styles.fill,
+                        {
+                            backgroundColor: theme.colors.primary,
+                            width: progress.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: ['0%', '100%'],
+                            }),
+                        },
+                    ]}
+                />
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        marginBottom: 20,
-        paddingHorizontal: 16,
+        paddingBottom: 4,
     },
-    stepWrapper: {
-        flex: 1,
-        alignItems: 'center',
+    track: {
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#1E293B',
+        overflow: 'hidden',
     },
-    iconContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        height: 36, // Match iconCircle height
-        marginBottom: 4,
-    },
-    iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        borderWidth: 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2, // Ensure icon stays on top of connector
-        backgroundColor: 'transparent', // Will be overridden dynamically
-    },
-    connector: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: '100%', // Spans from center of current to center of next (approx)
-        height: 2, // Thinner line
-        marginTop: -1, // Center vertically
-        zIndex: 1,
-    },
-    label: {
-        textAlign: 'center',
+    fill: {
+        height: '100%',
+        borderRadius: 2,
     },
 });

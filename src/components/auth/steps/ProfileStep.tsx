@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Platform, Keyboard, Modal } from 'r
 import { TextInput, Button, HelperText, Menu, Text, useTheme } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
+import utcPlugin from 'dayjs/plugin/utc';
 
 interface ProfileStepProps {
     initialFirst?: string;
@@ -10,7 +11,8 @@ interface ProfileStepProps {
     initialBirthDate?: string;
     initialGender?: string;
     onSubmit: (first: string, last: string, birthDate: string, gender: string) => void;
-    onBack: () => void;
+    /** Kept for the callers; the header arrow is what goes back now. */
+    onBack?: () => void;
     isLoading?: boolean;
     error?: string;
 }
@@ -22,20 +24,66 @@ const GENDER_MAP: Record<string, string> = {
     'rather_not_say': 'Prefiero no decir'
 };
 
+/**
+ * El huso en el que trabaja el selector: ninguno.
+ *
+ * Su calendario interno se siembra convirtiendo el valor al huso del
+ * aparato, y con fechas viejas eso mueve la celda marcada: elegir el 30 de
+ * diciembre de 1999 devolvía el 31, porque ese verano Argentina estaba en
+ * UTC-2 y la conversión cruzaba la medianoche. Fijándolo en UTC no hay
+ * conversión que cruzar, y la celda que se toca es la que vuelve.
+ */
+const UTC = 0;
+
+dayjs.extend(utcPlugin);
+
+/**
+ * La fecha, parada al mediodía.
+ *
+ * Una fecha de nacimiento es un día, no un instante, pero viaja en un `Date`
+ * que sí lo es. Parada a medianoche, cualquier conversión de zona horaria la
+ * corre al día anterior o al siguiente —de ahí que elegir el 23 terminara
+ * guardando el 24—. Al mediodía no hay desplazamiento posible: ninguna zona
+ * está a más de catorce horas de otra.
+ *
+ * El mismo recurso que ya usa la pantalla de perfil al leer la fecha del
+ * servidor; faltaba acá, que es donde se elige.
+ */
+function atMidday(date: Date): Date {
+    return new Date(
+        Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate(),
+            12,
+        ),
+    );
+}
+
+/**
+ * Lo que vuelve del paso anterior es `DD/MM/YYYY`, que `new Date` lee como
+ * mes/día/año: con el 23 de diciembre intentaba armar el mes 23.
+ */
+function parseBirthDate(value?: string): Date | null {
+    if (!value) return null;
+    const [d, m, y] = value.split('/').map(Number);
+    if (!d || !m || !y) return null;
+    return new Date(Date.UTC(y, m - 1, d, 12));
+}
+
 export const ProfileStep = ({
     initialFirst = '',
     initialLast = '',
     initialBirthDate = '',
     initialGender = '',
     onSubmit,
-    onBack,
     isLoading,
     error
 }: ProfileStepProps) => {
     const [firstName, setFirstName] = useState(initialFirst);
     const [lastName, setLastName] = useState(initialLast);
     const [birthDate, setBirthDate] = useState<Date | null>(
-        initialBirthDate ? new Date(initialBirthDate) : null
+        parseBirthDate(initialBirthDate),
     );
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [gender, setGender] = useState(initialGender);
@@ -50,12 +98,12 @@ export const ProfileStep = ({
             setShowDatePicker(false);
         }
         if (selectedDate) {
-            setBirthDate(selectedDate);
+            setBirthDate(atMidday(selectedDate));
             // Age validation
             const now = new Date();
-            let age = now.getFullYear() - selectedDate.getFullYear();
-            const m = now.getMonth() - selectedDate.getMonth();
-            if (m < 0 || (m === 0 && now.getDate() < selectedDate.getDate())) {
+            let age = now.getUTCFullYear() - selectedDate.getUTCFullYear();
+            const m = now.getUTCMonth() - selectedDate.getUTCMonth();
+            if (m < 0 || (m === 0 && now.getUTCDate() < selectedDate.getUTCDate())) {
                 age--;
             }
             if (age < 18) {
@@ -81,7 +129,7 @@ export const ProfileStep = ({
 
     const getFormattedDate = () => {
         if (!birthDate) return '';
-        return dayjs(birthDate).format('DD/MM/YY');
+        return dayjs(birthDate).utc().format('DD/MM/YY');
     };
 
     const handleSubmit = () => {
@@ -92,7 +140,7 @@ export const ProfileStep = ({
         if (birthDateError) return;
 
         setLocalError('');
-        const formatted = dayjs(birthDate).format('DD/MM/YYYY');
+        const formatted = dayjs(birthDate).utc().format('DD/MM/YYYY');
         onSubmit(firstName, lastName, formatted, gender);
     };
 
@@ -177,7 +225,8 @@ export const ProfileStep = ({
                     >
                         <TouchableOpacity style={[styles.iosInlineContainer, { backgroundColor: theme.colors.surface }]} activeOpacity={1}>
                             <DateTimePicker
-                                value={birthDate || new Date(2000, 0, 1)}
+                                value={birthDate || new Date(Date.UTC(2000, 0, 1, 12))}
+                                timeZoneOffsetInMinutes={UTC}
                                 mode="date"
                                 display="inline"
                                 onChange={handleDateChange}
@@ -193,7 +242,8 @@ export const ProfileStep = ({
 
             {showDatePicker && Platform.OS === 'android' && (
                 <DateTimePicker
-                    value={birthDate || new Date(2000, 0, 1)}
+                    value={birthDate || new Date(Date.UTC(2000, 0, 1, 12))}
+                    timeZoneOffsetInMinutes={UTC}
                     mode="date"
                     display="default"
                     onChange={handleDateChange}
@@ -209,15 +259,6 @@ export const ProfileStep = ({
             ) : null}
 
             <View style={styles.buttonContainer}>
-                <Button
-                    mode="outlined"
-                    onPress={onBack}
-                    disabled={isLoading}
-                    style={[styles.button, styles.flexButton]}
-                    icon="arrow-left"
-                >
-                    Volver
-                </Button>
                 <Button
                     mode="contained"
                     onPress={handleSubmit}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { getTheme } from '../../theme';
+import { recapWaiting } from '../../utils/recapSchedule';
 import { navigate } from '../../navigation/NavigationService';
 import { Recap } from '../../types/recap';
 
@@ -85,16 +86,20 @@ function PlacaSkeleton() {
 }
 
 /**
- * What most people see at first: the recap needs a handful of plays before it
- * says anything worth sharing. The bar turns the gate into progress instead of
- * a dead end, and the target comes from the API so it cannot drift from the
- * rule that actually withholds the recap.
+ * What there is to say when the recap is not there yet.
+ *
+ * There used to be a counter here — "vas 1 de 3 reproducciones" — from back
+ * when a handful of plays was the gate. The gate is the calendar now, and the
+ * counter was worse than redundant: from Monday to Thursday the week on screen
+ * is already closed, so it promised that a few more plays would fill a period
+ * nothing could change. What it says instead is when the next one lands.
  */
 export const EmptyRecap = ({ recap }: { recap: Recap }) => {
     const theme = getTheme('dark');
-    const done = recap.totals.plays;
-    const target = Math.max(recap.minimum_plays, 1);
-    const pct = Math.min(100, Math.round((done / target) * 100));
+    const waiting = recapWaiting(
+        recap.period.type === 'month' ? 'month' : 'week',
+        recap.period,
+    );
 
     return (
         <View style={styles.root}>
@@ -102,34 +107,11 @@ export const EmptyRecap = ({ recap }: { recap: Recap }) => {
 
             <View style={styles.copy}>
                 <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-                    Estamos armando tu resumen
+                    {waiting.title}
                 </Text>
                 <Text style={[styles.body, { color: theme.colors.textSecondary }]}>
-                    Para construirlo necesitamos que sigas mirando programas y streamers
-                    en La Guía. Con unas pocas reproducciones más, tu resumen aparece acá.
+                    {waiting.body}
                 </Text>
-            </View>
-
-            <View style={styles.progress}>
-                <View style={styles.progressLabels}>
-                    <Text style={[styles.progressLabel, { color: theme.colors.textPrimary }]}>
-                        Vas {done} de {target}{' '}
-                        {target === 1 ? 'reproducción' : 'reproducciones'}
-                    </Text>
-                    <Text style={styles.progressTarget}>Meta: {target}</Text>
-                </View>
-                <View
-                    style={styles.track}
-                    accessibilityRole="progressbar"
-                    accessibilityValue={{ min: 0, max: target, now: done }}
-                >
-                    <View
-                        style={[
-                            styles.fill,
-                            { width: `${pct}%`, backgroundColor: theme.colors.primary },
-                        ]}
-                    />
-                </View>
             </View>
 
             <Pressable
