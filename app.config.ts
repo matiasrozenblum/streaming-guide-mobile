@@ -253,7 +253,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
                 {
                     savePhotosPermission:
                         "Para guardar en tu carrete las placas de Mi resumen que elijas descargar.",
-                    isAccessMediaLocationEnabled: false
+                    isAccessMediaLocationEnabled: false,
+                    // Solo escribimos una placa en el carrete, nunca leemos la
+                    // galeria: `requestPermissionsAsync(true)` es write-only y el
+                    // modulo nativo deja las READ_MEDIA_* afuera del pedido en ese
+                    // modo. El plugin igual las declaraba —foto, video y audio, por
+                    // defecto— y Google Play pide justificar un acceso amplio que la
+                    // app no ejerce. La lista vacia las saca del manifest; las
+                    // *_EXTERNAL_STORAGE, que si hacen falta hasta Android 12, las
+                    // declara el manifest propio de la libreria.
+                    granularPermissions: []
                 }
             ]
         ]
